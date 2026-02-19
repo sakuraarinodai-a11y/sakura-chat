@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>サクラ整骨院 - AI予約チャット</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=Shippori+Mincho:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --pink: #e8839a;
+    --pink-light: #fde8ee;
+    --pink-dark: #c45d75;
+    --pink-pale: #fff5f7;
+    --gray: #6b7280;
+    --text: #1f2937;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family:'Noto Sans JP',sans-serif;
+    background:linear-gradient(135deg,#fff5f7 0%,#fde8ee 50%,#fff0f3 100%);
+    min-height:100vh; display:flex; align-items:center; justify-content:center; padding:16px;
+  }
+  .chat-wrapper {
+    width:100%; max-width:480px; background:white; border-radius:24px;
+    box-shadow:0 8px 40px rgba(232,131,154,0.2); overflow:hidden;
+    display:flex; flex-direction:column; height:90vh; max-height:800px;
+  }
+  .chat-header {
+    background:linear-gradient(135deg,var(--pink) 0%,var(--pink-dark) 100%);
+    padding:18px 24px; color:white; display:flex; align-items:center; gap:14px; flex-shrink:0;
+  }
+  .header-icon {
+    width:46px; height:46px; background:rgba(255,255,255,0.2); border-radius:50%;
+    display:flex; align-items:center; justify-content:center; font-size:22px; flex-shrink:0;
+  }
+  .header-text h1 { font-family:'Shippori Mincho',serif; font-size:16px; font-weight:600; letter-spacing:0.05em; }
+  .header-text p { font-size:12px; opacity:0.85; margin-top:2px; }
+  .header-status { margin-left:auto; display:flex; align-items:center; gap:6px; font-size:12px; opacity:0.9; }
+  .status-dot { width:8px; height:8px; background:#4ade80; border-radius:50%; animation:pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+  .chat-messages {
+    flex:1; overflow-y:auto; padding:20px 16px;
+    display:flex; flex-direction:column; gap:12px; scroll-behavior:smooth;
+  }
+  .chat-messages::-webkit-scrollbar { width:4px; }
+  .chat-messages::-webkit-scrollbar-thumb { background:#f9a8b8; border-radius:4px; }
+
+  .bubble-wrap { display:flex; gap:8px; animation:fadeUp 0.3s ease; }
+  .bubble-wrap.user { flex-direction:row-reverse; }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+  .avatar {
+    width:32px; height:32px; border-radius:50%;
+    background:linear-gradient(135deg,var(--pink) 0%,var(--pink-dark) 100%);
+    display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; margin-top:2px;
+  }
+  .bubble {
+    max-width:78%; padding:12px 16px; border-radius:18px;
+    font-size:14px; line-height:1.7; color:var(--text);
+  }
+  .bubble-wrap.bot .bubble {
+    background:var(--pink-pale); border:1px solid #fbd5e0; border-top-left-radius:4px;
+  }
+  .bubble-wrap.user .bubble {
+    background:linear-gradient(135deg,var(--pink) 0%,var(--pink-dark) 100%);
+    color:white; border-top-right-radius:4px;
+  }
+
+  /* 選択ボタン */
+  .choice-wrap { display:flex; flex-wrap:wrap; gap:8px; padding:0 40px; animation:fadeUp 0.3s ease 0.1s both; }
+  .choice-btn {
+    background:white; border:2px solid var(--pink); color:var(--pink-dark);
+    padding:8px 16px; border-radius:100px; font-size:13px;
+    font-family:'Noto Sans JP',sans-serif; cursor:pointer; transition:all 0.2s; font-weight:500;
+  }
+  .choice-btn:hover, .choice-btn.selected { background:var(--pink); color:white; }
+
+  /* 日付グリッド */
+  .date-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; padding:0 40px; animation:fadeUp 0.3s ease 0.1s both; }
+  .date-btn {
+    background:white; border:2px solid #fbd5e0; border-radius:12px; padding:8px 4px;
+    text-align:center; cursor:pointer; transition:all 0.2s; font-family:'Noto Sans JP',sans-serif;
+  }
+  .date-btn:hover { border-color:var(--pink); background:var(--pink-pale); }
+  .date-btn.selected { background:var(--pink); border-color:var(--pink); color:white; }
+  .date-btn .d-day { font-size:11px; color:var(--gray); display:block; }
+  .date-btn.selected .d-day { color:rgba(255,255,255,0.8); }
+  .date-btn .d-num { font-size:18px; font-weight:700; display:block; margin:2px 0; }
+  .date-btn .d-mon { font-size:10px; color:var(--gray); display:block; }
+  .date-btn.selected .d-mon { color:rgba(255,255,255,0.8); }
+  .sun { color:#e8475f; } .sat { color:#4096e8; }
+  .date-btn.selected .sun, .date-btn.selected .sat { color:white; }
+
+  /* 時間グリッド */
+  .time-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; padding:0 40px; animation:fadeUp 0.3s ease 0.1s both; }
+  .time-btn {
+    background:white; border:2px solid #fbd5e0; border-radius:10px; padding:10px;
+    text-align:center; cursor:pointer; font-size:14px; font-weight:600;
+    font-family:'Noto Sans JP',sans-serif; transition:all 0.2s; color:var(--text);
+  }
+  .time-btn:hover { border-color:var(--pink); background:var(--pink-pale); }
+  .time-btn.selected { background:var(--pink); border-color:var(--pink); color:white; }
+
+  /* 入力エリア */
+  .input-area {
+    flex-shrink:0; padding:12px 16px; background:white; border-top:1px solid #fbd5e0;
+    display:flex; gap:8px; align-items:center;
+  }
+  .input-area input {
+    flex:1; border:2px solid #fbd5e0; border-radius:20px; padding:10px 16px;
+    font-size:14px; font-family:'Noto Sans JP',sans-serif; outline:none;
+    background:var(--pink-pale); color:var(--text); transition:border-color 0.2s;
+  }
+  .input-area input:focus { border-color:var(--pink); background:white; }
+  .send-btn {
+    width:42px; height:42px;
+    background:linear-gradient(135deg,var(--pink) 0%,var(--pink-dark) 100%);
+    border:none; border-radius:50%; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; transition:transform 0.2s;
+    flex-shrink:0;
+  }
+  .send-btn:hover { transform:scale(1.05); }
+  .send-btn:disabled { opacity:0.5; cursor:not-allowed; }
+  .send-btn svg { width:18px; height:18px; fill:white; }
+
+  /* タイピング */
+  .typing {
+    display:flex; gap:4px; padding:12px 16px;
+    background:var(--pink-pale); border:1px solid #fbd5e0;
+    border-radius:18px; border-top-left-radius:4px; width:fit-content;
+  }
+  .typing span { width:6px; height:6px; background:var(--pink); border-radius:50%; animation:typing 1.2s infinite; }
+  .typing span:nth-child(2){animation-delay:0.2s} .typing span:nth-child(3){animation-delay:0.4s}
+  @keyframes typing { 0%,60%,100%{transform:translateY(0);opacity:0.4} 30%{transform:translateY(-6px);opacity:1} }
+
+  /* 確認カード */
+  .confirm-card {
+    background:white; border:2px solid var(--pink); border-radius:16px;
+    padding:16px; margin:0 40px; animation:fadeUp 0.3s ease;
+  }
+  .confirm-card h3 { font-family:'Shippori Mincho',serif; font-size:14px; color:var(--pink-dark); margin-bottom:12px; text-align:center; }
+  .confirm-row { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #fde8ee; font-size:13px; }
+  .confirm-row:last-child { border-bottom:none; }
+  .confirm-row .label { color:var(--gray); }
+  .confirm-row .value { font-weight:500; }
+
+  .confirm-btns { display:flex; gap:8px; margin:0 40px; animation:fadeUp 0.3s ease 0.1s both; }
+  .confirm-yes {
+    flex:1; background:linear-gradient(135deg,var(--pink) 0%,var(--pink-dark) 100%);
+    color:white; border:none; padding:12px; border-radius:12px;
+    font-size:14px; font-weight:600; font-family:'Noto Sans JP',sans-serif; cursor:pointer;
+  }
+  .confirm-no {
+    flex:1; background:white; color:var(--gray); border:2px solid #e5e7eb;
+    padding:12px; border-radius:12px; font-size:14px; font-family:'Noto Sans JP',sans-serif; cursor:pointer;
+  }
+
+  /* 完了 */
+  .complete-card {
+    text-align:center; padding:24px; margin:0 20px;
+    background:var(--pink-pale); border:2px solid var(--pink); border-radius:20px; animation:fadeUp 0.4s ease;
+  }
+  .complete-icon { font-size:48px; margin-bottom:12px; }
+  .complete-card h2 { font-family:'Shippori Mincho',serif; color:var(--pink-dark); font-size:18px; margin-bottom:8px; }
+  .complete-card p { font-size:13px; color:var(--gray); line-height:1.8; }
+  .restart-btn {
+    margin-top:16px; background:var(--pink); color:white; border:none;
+    padding:10px 24px; border-radius:100px; font-size:13px;
+    font-family:'Noto Sans JP',sans-serif; cursor:pointer;
+  }
+
+  /* フォーム */
+  .form-wrap { padding:0 40px; display:flex; flex-direction:column; gap:8px; animation:fadeUp 0.3s ease 0.1s both; }
+  .form-input {
+    width:100%; border:2px solid #fbd5e0; border-radius:12px; padding:12px 16px;
+    font-size:14px; font-family:'Noto Sans JP',sans-serif; outline:none;
+    background:var(--pink-pale); color:var(--text); transition:border-color 0.2s;
+  }
+  .form-input:focus { border-color:var(--pink); background:white; }
+  .form-input::placeholder { color:#bbb; }
+  .form-label { font-size:12px; color:var(--gray); padding-left:4px; }
+  .next-btn {
+    background:linear-gradient(135deg,var(--pink) 0%,var(--pink-dark) 100%);
+    color:white; border:none; padding:12px; border-radius:12px;
+    font-size:14px; font-weight:600; font-family:'Noto Sans JP',sans-serif; cursor:pointer;
+    animation:fadeUp 0.3s ease 0.2s both;
+  }
+
+  @media(max-width:480px){
+    body{padding:0;}
+    .chat-wrapper{height:100vh;max-height:none;border-radius:0;}
+  }
+</style>
+</head>
+<body>
+<div class="chat-wrapper">
+  <div class="chat-header">
+    <div class="header-icon">🌸</div>
+    <div class="header-text">
+      <h1>サクラ整骨院</h1>
+      <p>AI予約アシスタント</p>
+    </div>
+    <div class="header-status">
+      <div class="status-dot"></div>
+      <span>受付中</span>
+    </div>
+  </div>
+  <div class="chat-messages" id="messages"></div>
+  <div class="input-area" id="inputArea">
+    <input type="text" id="userInput" placeholder="メッセージを入力..." />
+    <button class="send-btn" id="sendBtn" onclick="sendUserMessage()">
+      <svg viewBox="0 0 24 24"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
+    </button>
+  </div>
+</div>
+
+<script>
+// ===================================================
+// ★ 設定エリア ★
+// ===================================================
+var GEMINI_API_KEY = "AIzaSyBfGmw8BEc_mlFyCkaywCd0etQmrxtHl04"; // ← 新しいキーに書き換える
+var GAS_URL = "YOUR_GAS_URL_HERE"; // ← GAS公開後にURLを貼る
+
+// 院内情報（AIの返答に使う）
+var CLINIC_INFO = {
+  name: "サクラ整骨院",
+  tel: "078-984-5788",
+  address: "兵庫県神戸市北区有野台2丁目1番7の9",
+  hours: "平日9:00〜19:00、土曜9:00〜17:00、日祝休診",
+  menus: [
+    "施術（通常）：15分〜75分・15分単位",
+    "交通事故施療",
+    "酸素カプセル（60分）",
+    "楽トレ（30分）",
+    "セルフトレーニング（60分）",
+  ],
+  times: ["09:00","09:30","10:00","10:30","11:00","11:30","13:00","13:30","14:00","14:30","15:00","15:30","16:00","16:30","17:00","17:30","18:00","18:30"],
+};
+
+// システムプロンプト（AIの振る舞いを定義）
+var SYSTEM_PROMPT = `あなたはサクラ整骨院の予約アシスタントです。
+患者さんと自然な会話をしながら、予約に必要な以下の情報を集めてください：
+1. 症状・お悩み（自由に話してもらう）
+2. おすすめメニューの提案
+3. 希望日付（「次へ」ボタンで選択させる）
+4. 希望時間（ボタンで選択させる）
+5. お名前と電話番号
+
+【院内情報】
+- 院名：${CLINIC_INFO.name}
+- 電話：${CLINIC_INFO.tel}
+- 住所：${CLINIC_INFO.address}
+- 営業時間：${CLINIC_INFO.hours}
+- メニュー：${CLINIC_INFO.menus.join("、")}
+
+【ルール】
+- 日本語で丁寧に、でも親しみやすく話す
+- 症状を聞いて適切なメニューを提案する（例：腰痛→施術60分、交通事故→交通事故施療）
+- 日付選択が必要になったら「[DATE_SELECT]」とだけ返す
+- 時間選択が必要になったら「[TIME_SELECT]」とだけ返す
+- お名前と電話番号の入力が必要になったら「[CONTACT_FORM]」とだけ返す
+- 予約内容確認の段階になったら「[SHOW_CONFIRM]」とだけ返す
+- 返答は短く、200字以内にする
+- 絵文字を適度に使って親しみやすくする`;
+
+// ===================================================
+// 状態管理
+// ===================================================
+var conversationHistory = [];
+var bookingData = {
+  menu: "", date: "", dateLabel: "", time: "", name: "", tel: "", symptoms: "", duration: 60
+};
+
+// ユーザー情報の読み込み
+var savedUser = null;
+try {
+  var s = localStorage.getItem("sakura_user");
+  if (s) savedUser = JSON.parse(s);
+} catch(e) {}
+
+// ===================================================
+// 起動
+// ===================================================
+window.addEventListener("load", function() {
+  setTimeout(startChat, 400);
+});
+
+function startChat() {
+  document.getElementById("messages").innerHTML = "";
+  conversationHistory = [];
+  bookingData = { menu:"", date:"", dateLabel:"", time:"", name:"", tel:"", symptoms:"", duration:60 };
+
+  var greeting = savedUser && savedUser.name
+    ? "おかえりなさい！" + savedUser.name + "さん 🌸\n今日はどのようなお悩みでいらっしゃいますか？"
+    : "こんにちは！サクラ整骨院のAIアシスタントです 🌸\n今日はどのようなお悩みでいらっしゃいますか？\n症状をお気軽にお話しください。";
+
+  addBotMsg(greeting);
+
+  if (savedUser && savedUser.name) {
+    bookingData.name = savedUser.name;
+    bookingData.tel = savedUser.tel;
+  }
+
+  document.getElementById("userInput").focus();
+}
+
+// ===================================================
+// メッセージ送信
+// ===================================================
+function sendUserMessage() {
+  var input = document.getElementById("userInput");
+  var text = input.value.trim();
+  if (!text) return;
+
+  input.value = "";
+  addUserMsg(text);
+  clearWidgets();
+  callGemini(text);
+}
+
+document.getElementById("userInput").addEventListener("keydown", function(e) {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendUserMessage(); }
+});
+
+// ===================================================
+// Gemini API呼び出し
+// ===================================================
+function callGemini(userText) {
+  conversationHistory.push({ role: "user", parts: [{ text: userText }] });
+
+  showTyping();
+  setSendDisabled(true);
+
+  // 現在の予約状況をコンテキストに追加
+  var contextText = userText;
+  if (bookingData.menu) contextText += "\n[選択済みメニュー：" + bookingData.menu + "]";
+  if (bookingData.date) contextText += "\n[選択済み日付：" + bookingData.dateLabel + "]";
+  if (bookingData.time) contextText += "\n[選択済み時間：" + bookingData.time + "]";
+
+  var body = {
+    system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
+    contents: conversationHistory,
+    generationConfig: { maxOutputTokens: 300, temperature: 0.7 },
+  };
+
+  fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + GEMINI_API_KEY, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    removeTyping();
+    setSendDisabled(false);
+
+    if (data.error) {
+      addBotMsg("⚠️ AIとの通信でエラーが発生しました。\nお電話（078-984-5788）でもご予約いただけます。");
+      return;
+    }
+
+    var reply = data.candidates[0].content.parts[0].text.trim();
+    conversationHistory.push({ role: "model", parts: [{ text: reply }] });
+
+    handleGeminiReply(reply);
+  })
+  .catch(function(err) {
+    removeTyping();
+    setSendDisabled(false);
+    addBotMsg("⚠️ 通信エラーが発生しました。しばらくしてからお試しください。");
+  });
+}
+
+// ===================================================
+// AIの返答を処理
+// ===================================================
+function handleGeminiReply(reply) {
+  if (reply.includes("[DATE_SELECT]")) {
+    addBotMsg("ご希望の日付をお選びください。");
+    showDateGrid();
+  } else if (reply.includes("[TIME_SELECT]")) {
+    addBotMsg("ご希望の時間帯をお選びください。");
+    showTimeGrid();
+  } else if (reply.includes("[CONTACT_FORM]")) {
+    if (savedUser && savedUser.name) {
+      bookingData.name = savedUser.name;
+      bookingData.tel = savedUser.tel;
+      callGemini("名前は" + savedUser.name + "、電話番号は" + savedUser.tel + "です。確認をお願いします。");
+    } else {
+      showContactForm();
+    }
+  } else if (reply.includes("[SHOW_CONFIRM]")) {
+    showConfirm();
+  } else {
+    // 通常の返答
+    addBotMsg(reply);
+
+    // メニューが含まれていたら記録
+    var menus = ["施術", "交通事故施療", "酸素カプセル", "楽トレ", "セルフトレーニング"];
+    menus.forEach(function(m) {
+      if (reply.includes(m) && !bookingData.menu) bookingData.menu = m;
+    });
+  }
+}
+
+// ===================================================
+// UI部品
+// ===================================================
+function showDateGrid() {
+  var grid = document.createElement("div");
+  grid.className = "date-grid";
+  var days = ["日","月","火","水","木","金","土"];
+  var today = new Date();
+
+  for (var i = 1; i <= 14; i++) {
+    var d = new Date(today);
+    d.setDate(today.getDate() + i);
+    var btn = document.createElement("button");
+    btn.className = "date-btn";
+    var dow = d.getDay();
+    var cls = dow===0 ? "sun" : dow===6 ? "sat" : "";
+    btn.innerHTML =
+      '<span class="d-day ' + cls + '">' + days[dow] + '</span>' +
+      '<span class="d-num">' + d.getDate() + '</span>' +
+      '<span class="d-mon">' + (d.getMonth()+1) + '月</span>';
+
+    (function(date, btn) {
+      btn.onclick = function() {
+        document.querySelectorAll(".date-btn").forEach(function(b){ b.classList.remove("selected"); });
+        btn.classList.add("selected");
+        var y = date.getFullYear();
+        var m = ("0"+(date.getMonth()+1)).slice(-2);
+        var dd = ("0"+date.getDate()).slice(-2);
+        bookingData.date = y + "-" + m + "-" + dd;
+        bookingData.dateLabel = (date.getMonth()+1) + "月" + date.getDate() + "日（" + days[date.getDay()] + "）";
+        setTimeout(function() {
+          addUserMsg(bookingData.dateLabel);
+          clearWidgets();
+          callGemini(bookingData.dateLabel + "を希望します。");
+        }, 200);
+      };
+    })(d, btn);
+
+    grid.appendChild(btn);
+  }
+  document.getElementById("messages").appendChild(grid);
+  scrollBottom();
+}
+
+function showTimeGrid() {
+  var grid = document.createElement("div");
+  grid.className = "time-grid";
+  CLINIC_INFO.times.forEach(function(t) {
+    var btn = document.createElement("button");
+    btn.className = "time-btn";
+    btn.textContent = t;
+    btn.onclick = function() {
+      bookingData.time = t;
+      addUserMsg(t);
+      clearWidgets();
+      callGemini(t + "を希望します。");
+    };
+    grid.appendChild(btn);
+  });
+  document.getElementById("messages").appendChild(grid);
+  scrollBottom();
+}
+
+function showContactForm() {
+  addBotMsg("お名前と電話番号をご入力ください 😊\n次回からは入力不要になります！");
+  var wrap = document.createElement("div");
+  wrap.className = "form-wrap";
+
+  var lbl1 = document.createElement("div"); lbl1.className = "form-label"; lbl1.textContent = "お名前";
+  var nameInput = document.createElement("input");
+  nameInput.type = "text"; nameInput.className = "form-input"; nameInput.placeholder = "例：山田 太郎";
+
+  var lbl2 = document.createElement("div"); lbl2.className = "form-label"; lbl2.textContent = "電話番号";
+  var telInput = document.createElement("input");
+  telInput.type = "tel"; telInput.className = "form-input"; telInput.placeholder = "例：090-1234-5678";
+
+  var btn = document.createElement("button");
+  btn.className = "next-btn"; btn.textContent = "確認へ →";
+  btn.onclick = function() {
+    var n = nameInput.value.trim();
+    var t = telInput.value.trim();
+    if (!n || !t) { nameInput.focus(); return; }
+    bookingData.name = n;
+    bookingData.tel = t;
+    try { localStorage.setItem("sakura_user", JSON.stringify({ name:n, tel:t })); } catch(e) {}
+    addUserMsg(n + "　" + t);
+    clearWidgets();
+    callGemini("名前は" + n + "、電話番号は" + t + "です。確認をお願いします。");
+  };
+
+  wrap.appendChild(lbl1); wrap.appendChild(nameInput);
+  wrap.appendChild(lbl2); wrap.appendChild(telInput);
+  wrap.appendChild(btn);
+  document.getElementById("messages").appendChild(wrap);
+  scrollBottom();
+  setTimeout(function(){ nameInput.focus(); }, 300);
+}
+
+function showConfirm() {
+  addBotMsg("以下の内容でご予約いたします。ご確認ください 🌸");
+
+  var card = document.createElement("div");
+  card.className = "confirm-card";
+  var rows = [
+    ["お名前", bookingData.name || "未入力"],
+    ["電話番号", bookingData.tel || "未入力"],
+    ["メニュー", bookingData.menu || "未選択"],
+    ["日付", bookingData.dateLabel || bookingData.date || "未選択"],
+    ["時間", bookingData.time || "未選択"],
+  ];
+  card.innerHTML = '<h3>🌸 ご予約内容</h3>' + rows.map(function(r){
+    return '<div class="confirm-row"><span class="label">' + r[0] + '</span><span class="value">' + r[1] + '</span></div>';
+  }).join("");
+
+  var btns = document.createElement("div");
+  btns.className = "confirm-btns";
+
+  var yes = document.createElement("button");
+  yes.className = "confirm-yes"; yes.textContent = "✓ この内容で予約する";
+  yes.onclick = function() { clearWidgets(); submitBooking(); };
+
+  var no = document.createElement("button");
+  no.className = "confirm-no"; no.textContent = "← 修正する";
+  no.onclick = function() {
+    clearWidgets();
+    addBotMsg("修正したい内容をお教えください。");
+  };
+
+  btns.appendChild(yes); btns.appendChild(no);
+  document.getElementById("messages").appendChild(card);
+  document.getElementById("messages").appendChild(btns);
+  scrollBottom();
+}
+
+function submitBooking() {
+  showTyping();
+  var data = {
+    action: "create_booking",
+    bookerName: bookingData.name,
+    bookerTel: bookingData.tel,
+    menu: bookingData.menu,
+    date: bookingData.date,
+    time: bookingData.time,
+    duration: bookingData.duration,
+    symptoms: bookingData.symptoms,
+    source: "AIチャット（Gemini）",
+  };
+
+  if (GAS_URL === "YOUR_GAS_URL_HERE") {
+    setTimeout(function() { removeTyping(); showComplete(); }, 1200);
+    return;
+  }
+
+  fetch(GAS_URL, { method:"POST", body:JSON.stringify(data) })
+  .then(function(r){ return r.json(); })
+  .then(function(res){
+    removeTyping();
+    if (res.status === "ok") showComplete();
+    else addBotMsg("⚠️ エラーが発生しました。\nお電話（078-984-5788）でご予約ください。");
+  })
+  .catch(function(){
+    removeTyping();
+    showComplete(); // デモ用
+  });
+}
+
+function showComplete() {
+  var card = document.createElement("div");
+  card.className = "complete-card";
+  card.innerHTML =
+    '<div class="complete-icon">🌸</div>' +
+    '<h2>ご予約ありがとうございます！</h2>' +
+    '<p>' + (bookingData.name || "お客様") + 'のご予約を受け付けました。<br>' +
+    (bookingData.dateLabel || bookingData.date) + ' ' + bookingData.time + '<br><br>' +
+    '担当者よりご連絡する場合がございます。<br>ご来院をお待ちしております 🌸</p>' +
+    '<button class="restart-btn" onclick="startChat()">別の予約をする</button>';
+  document.getElementById("messages").appendChild(card);
+  scrollBottom();
+}
+
+// ===================================================
+// ユーティリティ
+// ===================================================
+function addBotMsg(text) {
+  var wrap = document.createElement("div");
+  wrap.className = "bubble-wrap bot";
+  wrap.innerHTML = '<div class="avatar">🌸</div><div class="bubble">' + text.replace(/\n/g,"<br>") + '</div>';
+  document.getElementById("messages").appendChild(wrap);
+  scrollBottom();
+}
+
+function addUserMsg(text) {
+  var wrap = document.createElement("div");
+  wrap.className = "bubble-wrap user";
+  wrap.innerHTML = '<div class="bubble">' + text + '</div>';
+  document.getElementById("messages").appendChild(wrap);
+  scrollBottom();
+}
+
+function showTyping() {
+  var wrap = document.createElement("div");
+  wrap.className = "bubble-wrap bot"; wrap.id = "typing-wrap";
+  wrap.innerHTML = '<div class="avatar">🌸</div><div class="typing"><span></span><span></span><span></span></div>';
+  document.getElementById("messages").appendChild(wrap);
+  scrollBottom();
+}
+
+function removeTyping() {
+  var el = document.getElementById("typing-wrap");
+  if (el) el.remove();
+}
+
+function clearWidgets() {
+  var msgs = document.getElementById("messages");
+  msgs.querySelectorAll(".date-grid,.time-grid,.choice-wrap,.form-wrap,.next-btn,.confirm-card,.confirm-btns").forEach(function(el){ el.remove(); });
+}
+
+function scrollBottom() {
+  var msgs = document.getElementById("messages");
+  setTimeout(function(){ msgs.scrollTop = msgs.scrollHeight; }, 50);
+}
+
+function setSendDisabled(disabled) {
+  document.getElementById("sendBtn").disabled = disabled;
+  document.getElementById("userInput").disabled = disabled;
+}
+</script>
+</body>
+</html>

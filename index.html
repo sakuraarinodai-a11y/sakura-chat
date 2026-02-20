@@ -219,8 +219,8 @@
 // ===================================================
 // ★ 設定エリア ★
 // ===================================================
-var GEMINI_API_KEY = "AIzaSyBfGmw8BEc_mlFyCkaywCd0etQmrxtHl04"; // ← 新しいキーに書き換える
-var GAS_URL = "YOUR_GAS_URL_HERE"; // ← GAS公開後にURLを貼る
+var GEMINI_API_KEY = ""; // GAS経由で使用するため不要
+var GAS_URL = "https://script.googleusercontent.com/macros/echo?user_content_key=AY5xjrRPp2fR7AMPgNUlYbSVImSpfWr8Jibv4Nhh8qaBnSXA0VtXlfZWx9UIrMlwDxPidCD-XfQOe2BeGfcTsLTrRWWOoUc8P1sKliMuKdOMLfnY8Ga7exux8bwANjewN5RIAB0KXcp0ME_AQqV9AK5fPBJKauBpE96o0o6XvIXzRq_Zf6E5LR88Hl1dPCaHDObsjtYdyKi1AwWiuywkMddUSPviQZCNhyyryxWX0072gv4mbfB1uZsGBz5Op0Y0rIzN800gETcLWqN0gMSY1xDfaOKHnBNwaZDYWc2PDhXw&lib=MUpWhYHD-8dFfT4hLb6dZAGyBbKEn_SGk";
 
 // 院内情報（AIの返答に使う）
 var CLINIC_INFO = {
@@ -344,9 +344,9 @@ function callGemini(userText) {
     generationConfig: { maxOutputTokens: 300, temperature: 0.7 },
   };
 
-  fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + GEMINI_API_KEY, {
+  // GAS経由でGemini APIを呼び出す（キーはGASの中で管理）
+  fetch(GAS_URL, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   })
   .then(function(r) { return r.json(); })

@@ -32,18 +32,27 @@
   .cbtn { padding:10px 16px; background:white; border:1.5px solid var(--pink); border-radius:20px; font-size:14px; color:var(--pink-dark); cursor:pointer; text-align:left; transition:all 0.2s; }
   .cbtn:hover { background:var(--pink-light); }
   .cbtn:disabled { opacity:0.4; cursor:not-allowed; }
+  .cbtn.gold { border-color:#d97706; color:#92400e; background:#fffbeb; }
+  .cbtn.gold:hover { background:#fef3c7; }
   .slots { display:flex; flex-wrap:wrap; gap:8px; padding:0 16px 4px 56px; animation:up 0.3s ease; }
   .slotbtn { padding:8px 14px; background:white; border:1.5px solid var(--pink); border-radius:20px; font-size:13px; color:var(--pink-dark); cursor:pointer; }
   .slotbtn:hover { background:var(--pink-light); }
   .cardwrap { padding:0 16px 4px 56px; animation:up 0.3s ease; }
   .card { background:linear-gradient(135deg,#fff5f7,#fde8ee); border:2px solid var(--pink-light); border-radius:16px; padding:16px; font-size:13px; }
+  .card.gold { background:linear-gradient(135deg,#fffbeb,#fef3c7); border-color:#fcd34d; }
   .card h3 { color:var(--pink-dark); font-size:14px; margin-bottom:10px; font-weight:600; }
+  .card.gold h3 { color:#92400e; }
   .card .row { display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px solid #fce4ec; }
   .card .row:last-of-type { border-bottom:none; }
   .card .lbl { color:var(--gray); }
+  .card p { font-size:13px; line-height:1.8; color:#374151; margin-bottom:10px; }
+  .card .price { font-size:22px; font-weight:700; color:#92400e; text-align:center; padding:8px 0; }
+  .card .price small { font-size:13px; font-weight:400; color:var(--gray); }
   .btnrow { display:flex; gap:8px; margin-top:12px; }
-  .btnok { flex:1; padding:10px; background:var(--pink); color:white; border:none; border-radius:12px; font-size:14px; font-weight:500; cursor:pointer; }
+  .btnok { flex:1; padding:10px; background:var(--pink); color:white; border:none; border-radius:12px; font-size:14px; font-weight:500; cursor:pointer; text-align:center; text-decoration:none; display:flex; align-items:center; justify-content:center; }
   .btnok:hover { background:var(--pink-dark); }
+  .btnok.gold { background:linear-gradient(135deg,#f59e0b,#d97706); }
+  .btnok.gold:hover { background:#b45309; }
   .btnng { flex:1; padding:10px; background:white; color:var(--gray); border:1px solid #e5e7eb; border-radius:12px; font-size:14px; cursor:pointer; }
   .linebtn { display:flex; align-items:center; justify-content:center; gap:8px; padding:10px 16px; background:#06C755; color:white; border:none; border-radius:20px; font-size:14px; cursor:pointer; width:100%; margin-top:8px; }
   .ytbtn { display:flex; align-items:center; justify-content:center; gap:8px; padding:10px 16px; background:#FF0000; color:white; border:none; border-radius:20px; font-size:14px; cursor:pointer; width:100%; margin-top:8px; text-decoration:none; }
@@ -59,6 +68,8 @@
   .inp:disabled { background:#fafafa; color:#aaa; }
   .sbtn { width:40px; height:40px; background:var(--pink); border:none; border-radius:50%; color:white; font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
   .sbtn:disabled { background:#f3c4cf; cursor:not-allowed; }
+  .badge { display:inline-block; background:var(--pink); color:white; font-size:11px; padding:2px 8px; border-radius:10px; margin-left:6px; vertical-align:middle; }
+  .badge.gold { background:#f59e0b; }
 </style>
 </head>
 <body>
@@ -82,13 +93,12 @@ var GAS_URL = "https://script.google.com/macros/s/AKfycbyfHn9LJJMs7KQNi0rxTVUTwv
 var LINE_URL = "https://line.me/R/ti/p/%40487yoson";
 var YOUTUBE_KOBE = "https://youtu.be/_wXc0tYJ5wk?si=XL0Kk8ZhG-uBq-Rx";
 var YOUTUBE_SANDA = "https://youtu.be/u7JdsKxg6yM?si=TaoGEgALM42uw-Kt";
-var CLINIC_ADDRESS = "兵庫県神戸市北区有野台2-1-7-9";
+var SQUARE_URL = "https://square.link/u/eB3F1BoG";
 
 var patient = loadData("sakura_patient") || {};
 var family = loadData("sakura_family") || [];
 var reserv = {};
 var step = "";
-var lastSurveyDate = patient.lastSurveyDate || null;
 
 // ============================================================
 // 起動
@@ -97,146 +107,123 @@ window.onload = function() {
   wait(function() {
     if (patient.name) {
       addBot("おかえりなさい、" + patient.name + "さん 🌸");
-      // 前回の感想を聞くべきか確認
-      var shouldAskSurvey = checkShouldAskSurvey();
       wait(function() {
-        if (shouldAskSurvey) {
-          addBot("前回の施術はいかがでしたか？");
-          wait(function() {
-            showChoices([
-              { label:"とても良かった", val:"great" },
-              { label:"良かった", val:"good" },
-              { label:"普通", val:"normal" },
-              { label:"改善してほしい点があった", val:"bad" },
-            ], onSurveyFirst);
-          }, 600);
+        var shouldSurvey = checkShouldAskSurvey();
+        if (shouldSurvey) {
+          wait(function() { askPrevFeedback(); }, 600);
         } else {
-          askPurpose();
+          wait(function() { askPurpose(); }, 600);
         }
       }, 600);
     } else {
-      addBot("こんにちは！サクラ整骨院のAIアシスタントです 🌸");
+      addBot("こんにちは！\nサクラ整骨院のAIアシスタントです 🌸");
       wait(function() {
-        addBot("今日はどのようなお悩みでいらっしゃいますか？");
-        wait(function() { askPurpose(); }, 600);
-      }, 600);
+        addBot("ご予約・お悩みのご相談をお気軽にどうぞ。");
+        wait(function() { askPurpose(); }, 800);
+      }, 700);
     }
   }, 400);
 };
 
 // ============================================================
-// 前回感想を聞くべきか
+// 前回感想確認（90日以上経過）
 // ============================================================
 function checkShouldAskSurvey() {
-  if (!lastSurveyDate) return true;
-  var last = new Date(lastSurveyDate);
-  var now = new Date();
-  var diff = (now - last) / (1000 * 60 * 60 * 24);
+  if (!patient.lastSurveyDate) return true;
+  var diff = (new Date() - new Date(patient.lastSurveyDate)) / (1000*60*60*24);
   return diff >= 90;
 }
 
-// ============================================================
-// 前回感想
-// ============================================================
-function onSurveyFirst(val) {
-  if (val === "great" || val === "good") {
-    wait(function() {
-      addBot("それは嬉しいです 🌸");
-      wait(function() {
-        addBot("Googleの口コミへのご投稿にご協力いただけますか？");
-        wait(function() {
-          showChoices([
-            { label:"はい、協力します", val:"review_yes" },
-            { label:"またの機会に", val:"review_no" },
-          ], onReviewAsk);
-        }, 600);
-      }, 600);
-    }, 400);
-  } else if (val === "bad") {
-    wait(function() {
-      addBot("貴重なご意見ありがとうございます 🌸");
-      wait(function() {
-        addBot("どのような点でしょうか？お聞かせください。");
-        step = "complaint";
-        enableInput();
-      }, 600);
-    }, 400);
-  } else {
-    wait(function() {
-      addBot("ありがとうございます 🌸");
-      wait(function() { askPurpose(); }, 600);
-    }, 400);
-  }
-}
-
-function onReviewAsk(val) {
-  if (val === "review_yes") {
-    wait(function() {
-      addBot("ありがとうございます 🌸");
-      wait(function() {
-        addBot("ご回答内容をもとに口コミ文をご用意しております。\n時短でそのままご利用いただいても結構です。");
-        wait(function() { startSurvey(); }, 800);
-      }, 600);
-    }, 400);
-  } else {
-    patient.lastSurveyDate = new Date().toISOString();
-    saveData("sakura_patient", patient);
-    wait(function() {
-      addBot("またの機会にぜひお願いします 🌸");
-      wait(function() { askPurpose(); }, 600);
-    }, 400);
-  }
-}
-
-// ============================================================
-// アンケート（会話形式）
-// ============================================================
 var surveyAnswers = {};
-function startSurvey() {
-  addBot("どのような症状でお悩みでしたか？");
+function askPrevFeedback() {
+  addBot("前回の施術はいかがでしたか？");
   wait(function() {
     showChoices([
-      { label:"首・肩の痛み", val:"首・肩の痛み" },
-      { label:"腰の痛み", val:"腰の痛み" },
-      { label:"膝・足の痛み", val:"膝・足の痛み" },
-      { label:"背中の痛み", val:"背中の痛み" },
-      { label:"その他", val:"other_symptom" },
+      { label:"⭐ とても良かった", val:"great" },
+      { label:"良かった", val:"good" },
+      { label:"普通", val:"normal" },
+      { label:"改善してほしい点があった", val:"bad" },
     ], function(val) {
-      if (val === "other_symptom") {
-        addBot("どのような症状でしたか？");
-        step = "survey_symptom"; enableInput(); return;
+      if (val === "great" || val === "good") {
+        wait(function() {
+          addBot("それは嬉しいです 🌸");
+          wait(function() {
+            addBot("Googleの口コミへのご投稿にご協力いただけますか？");
+            wait(function() {
+              showChoices([
+                { label:"はい、協力します", val:"yes" },
+                { label:"またの機会に", val:"no" },
+              ], function(v) {
+                if (v === "yes") { wait(function(){ startSurvey(); }, 400); }
+                else {
+                  patient.lastSurveyDate = new Date().toISOString();
+                  saveData("sakura_patient", patient);
+                  wait(function(){ askPurpose(); }, 600);
+                }
+              });
+            }, 600);
+          }, 600);
+        }, 400);
+      } else if (val === "bad") {
+        wait(function() {
+          addBot("貴重なご意見ありがとうございます 🌸\nどのような点でしょうか？");
+          step = "complaint"; enableInput();
+        }, 400);
+      } else {
+        wait(function() { askPurpose(); }, 600);
       }
-      surveyAnswers.symptom = val;
-      wait(function() { surveyQ2(); }, 400);
     });
   }, 600);
 }
 
-function surveyQ2() {
+// ============================================================
+// アンケート（口コミ用）
+// ============================================================
+function startSurvey() {
+  addBot("ありがとうございます 🌸\nいくつかご質問させてください。");
+  wait(function() {
+    addBot("どのような症状でお悩みでしたか？");
+    wait(function() {
+      showChoices([
+        { label:"首・肩の痛み", val:"首・肩の痛み" },
+        { label:"腰の痛み", val:"腰の痛み" },
+        { label:"膝・足の痛み", val:"膝・足の痛み" },
+        { label:"背中の痛み", val:"背中の痛み" },
+        { label:"その他", val:"other" },
+      ], function(val) {
+        if (val === "other") { step = "survey_symptom"; enableInput(); return; }
+        surveyAnswers.symptom = val;
+        wait(function(){ surveyPain1(); }, 400);
+      });
+    }, 600);
+  }, 600);
+}
+
+function surveyPain1() {
   addBot("施術前の痛みを10段階で教えてください。");
   wait(function() {
     var items = [];
     for (var i=10;i>=1;i--) items.push({label:i+"（"+painLabel(i)+"）",val:String(i)});
     showChoices(items, function(val) {
       surveyAnswers.painBefore = val;
-      wait(function() { surveyQ3(); }, 400);
+      wait(function(){ surveyPain2(); }, 400);
     });
   }, 600);
 }
 
-function surveyQ3() {
+function surveyPain2() {
   addBot("施術後の痛みを10段階で教えてください。");
   wait(function() {
     var items = [];
     for (var i=1;i<=10;i++) items.push({label:i+"（"+painLabel(i)+"）",val:String(i)});
     showChoices(items, function(val) {
       surveyAnswers.painAfter = val;
-      wait(function() { surveyQ4(); }, 400);
+      wait(function(){ surveyImpression(); }, 400);
     });
   }, 600);
 }
 
-function surveyQ4() {
+function surveyImpression() {
   addBot("施術の印象はいかがでしたか？");
   wait(function() {
     showChoices([
@@ -246,12 +233,12 @@ function surveyQ4() {
       { label:"他院と違うと感じた", val:"他院と違うと感じた" },
     ], function(val) {
       surveyAnswers.impression = val;
-      wait(function() { surveyQ5(); }, 400);
+      wait(function(){ surveyStars(); }, 400);
     });
   }, 600);
 }
 
-function surveyQ5() {
+function surveyStars() {
   addBot("総合評価を教えてください。");
   wait(function() {
     showChoices([
@@ -263,135 +250,118 @@ function surveyQ5() {
       surveyAnswers.stars = parseInt(val);
       patient.lastSurveyDate = new Date().toISOString();
       saveData("sakura_patient", patient);
-      wait(function() { finishSurvey(); }, 400);
+      wait(function(){ finishSurvey(); }, 400);
     });
   }, 600);
 }
 
 function finishSurvey() {
   if (surveyAnswers.stars >= 4) {
-    addBot("アンケートにご協力いただきありがとうございます 🌸");
-    wait(function() {
-      addBot("口コミ文を作成しています...");
-      // GASにGeminiで口コミ文生成を依頼
-      fetch(GAS_URL, {
-        method:"POST",
-        body:JSON.stringify({ action:"generateReview", survey:surveyAnswers, patientName:patient.name }),
-      })
-      .then(function(r){return r.json();})
-      .then(function(d){
-        var msgs = document.getElementById("msgs");
-        msgs.lastElementChild.remove();
-        if (d.success) {
-          addBot("口コミ文をご用意しました 🌸\nもちろん変更していただいて構いません。\nプレッシャーに感じないでくださいね。");
-          wait(function() {
-            var wrap = document.createElement("div");
-            wrap.className = "cardwrap";
-            wrap.innerHTML = '<div class="card"><h3>📝 口コミサンプル</h3>'
-              + '<p style="font-size:13px;line-height:1.8;color:#374151;">' + esc(d.review) + '</p>'
-              + '<div class="btnrow">'
-              + '<a href="https://g.page/r/Cc0rd9i5x96tEAE/review" target="_blank" class="btnok" style="text-align:center;text-decoration:none;">投稿してみる 👉</a>'
-              + '<button class="btnng" onclick="skipReview()">またの機会に</button>'
-              + '</div></div>';
-            document.getElementById("msgs").appendChild(wrap);
-            scrollB();
-          }, 400);
-        } else {
-          askPurpose();
-        }
-      });
-    }, 800);
-  } else {
-    addBot("ご意見をお聞かせいただきありがとうございます 🌸\n今後の改善に活かしてまいります。");
-    // スタッフに通知
+    addBot("ありがとうございます 🌸\n口コミ文を作成しています...");
     fetch(GAS_URL, {
       method:"POST",
-      body:JSON.stringify({ action:"notifyStaff", type:"low_rating", survey:surveyAnswers, patient:patient.name }),
+      body: JSON.stringify({ action:"generateReview", survey:surveyAnswers, patientName:patient.name }),
+    })
+    .then(function(r){return r.json();})
+    .then(function(d) {
+      var msgs = document.getElementById("msgs");
+      msgs.lastElementChild.remove();
+      if (d.success) {
+        addBot("口コミ文をご用意しました 🌸\nそのままご利用いただいても、変更していただいても構いません。");
+        wait(function() {
+          var wrap = document.createElement("div");
+          wrap.className = "cardwrap";
+          wrap.innerHTML = '<div class="card">'
+            + '<h3>📝 口コミサンプル</h3>'
+            + '<p style="font-size:13px;line-height:1.8;color:#374151;">' + esc(d.review) + '</p>'
+            + '<div class="btnrow">'
+            + '<a href="https://g.page/r/Cc0rd9i5x96tEAE/review" target="_blank" class="btnok" style="text-decoration:none;">Googleに投稿する 👉</a>'
+            + '<button class="btnng" onclick="skipReview()">またの機会に</button>'
+            + '</div></div>';
+          document.getElementById("msgs").appendChild(wrap);
+          scrollB();
+        }, 400);
+      } else { wait(function(){ askPurpose(); }, 600); }
     });
-    wait(function() { askPurpose(); }, 800);
+  } else {
+    addBot("ご意見をありがとうございます 🌸\nスタッフに必ずお伝えします。");
+    fetch(GAS_URL, { method:"POST", body:JSON.stringify({ action:"notifyStaff", type:"low_rating", survey:surveyAnswers, patient:patient.name }) });
+    wait(function(){ askPurpose(); }, 800);
   }
 }
 
 function skipReview() {
   addBot("またの機会にぜひお願いします 🌸");
-  wait(function() { askPurpose(); }, 600);
+  wait(function(){ askPurpose(); }, 600);
 }
 
 function painLabel(n) {
-  var labels = {1:"痛くない",2:"違和感",3:"少し違和感",4:"なんとなく痛い",5:"少し痛む",6:"痛い",7:"強い痛み",8:"かなり強い痛み",9:"耐えられない",10:"最大の痛み"};
-  return labels[n] || "";
+  return {1:"痛くない",2:"違和感",3:"少し違和感",4:"なんとなく痛い",5:"少し痛む",6:"痛い",7:"強い痛み",8:"かなり強い痛み",9:"耐えられない",10:"最大の痛み"}[n]||"";
 }
 
 // ============================================================
 // 来院目的
 // ============================================================
 function askPurpose() {
-  showChoices([
-    { label:"痛み・しびれがある", val:"pain" },
-    { label:"疲れを回復したい", val:"fatigue" },
-    { label:"トレーニングしたい", val:"training" },
-    { label:"往診を希望したい", val:"visit" },
-    { label:"その他", val:"other_purpose" },
-  ], onPurpose);
+  addBot("今日はどのようなことでいらっしゃいますか？");
+  wait(function() {
+    showChoices([
+      { label:"痛み・しびれがある", val:"pain" },
+      { label:"疲れを回復したい", val:"fatigue" },
+      { label:"トレーニングしたい", val:"training" },
+      { label:"往診を希望したい", val:"visit" },
+      { label:"サブスク会員について知りたい", val:"subsinfo" },
+      { label:"その他", val:"other" },
+    ], onPurpose);
+  }, 600);
 }
 
 function onPurpose(val) {
   reserv.purpose = val;
   if (val === "pain") {
     wait(function() {
-      addBot("そうなんですね、それはつらいですね 🌸");
+      addBot("それはつらいですね 😢\nどのあたりが痛みますか？");
       wait(function() {
-        addBot("どのあたりが痛みますか？");
-        wait(function() {
-          showChoices([
-            { label:"腰・お尻", val:"back" },
-            { label:"肩・首", val:"shoulder" },
-            { label:"膝・足", val:"knee" },
-            { label:"手・腕", val:"arm" },
-            { label:"交通事故でのケガ", val:"accident" },
-            { label:"その他", val:"other_location" },
-          ], onLocation);
-        }, 600);
+        showChoices([
+          { label:"腰・お尻", val:"腰・お尻" },
+          { label:"肩・首", val:"肩・首" },
+          { label:"膝・足", val:"膝・足" },
+          { label:"手・腕", val:"手・腕" },
+          { label:"交通事故でのケガ", val:"交通事故" },
+          { label:"その他", val:"other_location" },
+        ], onLocation);
       }, 600);
     }, 400);
   } else if (val === "fatigue") {
     wait(function() {
-      addBot("お疲れが溜まっているんですね 🌸");
+      addBot("お疲れが溜まっているんですね 🌸\nどのようなケアをご希望ですか？");
       wait(function() {
-        addBot("どのようなケアをご希望ですか？");
-        wait(function() {
-          showChoices([
-            { label:"酸素カプセルで回復したい", val:"酸素カプセル" },
-            { label:"全身をほぐしたい", val:"施術30分" },
-            { label:"相談しながら決めたい", val:"consult" },
-          ], onMenuSelect);
-        }, 600);
+        showChoices([
+          { label:"酸素カプセルで回復したい", val:"酸素カプセル" },
+          { label:"全身をほぐしたい（施術30分）", val:"施術30分" },
+          { label:"相談しながら決めたい", val:"consult" },
+        ], onMenuSelect);
       }, 600);
     }, 400);
   } else if (val === "training") {
     wait(function() {
       addBot("トレーニングをお考えなんですね 🌸");
       wait(function() {
-        addBot("どのようなトレーニングをご希望ですか？");
-        wait(function() {
-          showChoices([
-            { label:"EMSで楽に鍛えたい（楽トレ）", val:"楽トレ" },
-            { label:"マンツーマン指導を受けたい", val:"マンツーマントレーニング" },
-            { label:"相談しながら決めたい", val:"consult" },
-          ], onMenuSelect);
-        }, 600);
+        showChoices([
+          { label:"EMSで楽に鍛えたい（楽トレ）", val:"楽トレ" },
+          { label:"マンツーマン指導を受けたい", val:"マンツーマントレーニング" },
+          { label:"相談しながら決めたい", val:"consult" },
+        ], onMenuSelect);
       }, 600);
     }, 400);
   } else if (val === "visit") {
     wait(function() {
-      addBot("往診をご希望なんですね 🌸");
-      wait(function() {
-        addBot("ご自宅の住所を教えていただけますか？\n（距離によって交通費が変わります）");
-        step = "visit_address"; enableInput();
-      }, 600);
+      addBot("往診をご希望なんですね 🌸\nご自宅の住所を教えていただけますか？");
+      step = "visit_address"; enableInput();
     }, 400);
+  } else if (val === "subsinfo") {
+    wait(function(){ showSubsInfo(); }, 400);
   } else {
-    // その他：AIに意図を判定してもらう
     wait(function() {
       addBot("どのようなことでしょうか？\nお気軽にお話しください。");
       step = "other_free"; enableInput();
@@ -400,61 +370,220 @@ function onPurpose(val) {
 }
 
 // ============================================================
+// サブスク案内
+// ============================================================
+function showSubsInfo() {
+  addBot("サクラ整骨院のサブスク会員プランをご紹介します 🌸");
+  wait(function() {
+    var wrap = document.createElement("div");
+    wrap.className = "cardwrap";
+    wrap.innerHTML = '<div class="card gold">'
+      + '<h3>⭐ サクラ会員プラン</h3>'
+      + '<div class="price">月額 7,800円 <small>/月</small></div>'
+      + '<p>✅ 毎月の施術60分（8,000円相当）が含まれます<br>'
+      + '✅ 追加施術はすべて<strong>10%OFF</strong><br>'
+      + '✅ 1日あたりわずか260円で体の安心を維持</p>'
+      + '<div class="btnrow">'
+      + '<a href="' + SQUARE_URL + '" target="_blank" class="btnok gold">今すぐ申し込む ✨</a>'
+      + '<button class="btnng" onclick="showSubsDetail()">もっと詳しく</button>'
+      + '</div></div>';
+    document.getElementById("msgs").appendChild(wrap);
+    scrollB();
+    wait(function() {
+      showChoices([
+        { label:"予約もする", val:"reserve" },
+        { label:"トップに戻る", val:"top" },
+      ], function(v) {
+        if (v === "reserve") { wait(function(){ askPurpose2(); }, 400); }
+        else { wait(function(){ askPurpose(); }, 400); }
+      });
+    }, 600);
+  }, 600);
+}
+
+function showSubsDetail() {
+  addBot("体の組織（筋肉・神経）が新しい細胞に入れ替わるには\n約6ヶ月かかると言われています。\n\nその間に定期的にケアすることで\n「また痛くなるかも」という不安から\n解放された体が作られます 🌸\n\n歯科の定期検診と同じように\n体も定期的に診てもらうことが大切です。");
+  wait(function() {
+    showChoices([
+      { label:"申し込む ✨", val:"apply" },
+      { label:"まず予約してみる", val:"reserve" },
+    ], function(v) {
+      if (v === "apply") { window.open(SQUARE_URL, "_blank"); wait(function(){ askPurpose(); }, 600); }
+      else { wait(function(){ askPurpose2(); }, 400); }
+    });
+  }, 600);
+}
+
+function askPurpose2() {
+  addBot("どのような症状でいらっしゃいますか？");
+  wait(function() {
+    showChoices([
+      { label:"痛み・しびれがある", val:"pain" },
+      { label:"疲れを回復したい", val:"fatigue" },
+      { label:"トレーニングしたい", val:"training" },
+    ], onPurpose);
+  }, 600);
+}
+
+// ============================================================
 // 痛みの場所
 // ============================================================
 function onLocation(val) {
   reserv.location = val;
-  if (val === "accident") {
-    wait(function() {
-      addBot("交通事故でのお怪我ですね。大変でしたね 🌸");
-      wait(function() {
-        addBot("当院では交通事故施療にも対応しております。");
-        reserv.menu = "初診（保険）";
-        wait(function() { askDuration(); }, 600);
-      }, 600);
-    }, 400);
-  } else if (val === "other_location") {
-    wait(function() {
-      addBot("どのあたりが痛みますか？");
-      step = "location_free"; enableInput();
-    }, 400);
-  } else {
-    wait(function() {
-      addBot("いつ頃から痛みがありますか？");
-      wait(function() { askDuration(); }, 600);
-    }, 400);
+  if (val === "other_location") {
+    wait(function(){ addBot("どのあたりが痛みますか？"); step="location_free"; enableInput(); }, 400);
+    return;
   }
+  wait(function() {
+    addBot("いつ頃から痛みがありますか？");
+    wait(function() {
+      showChoices([
+        { label:"今日突然痛くなった", val:"today" },
+        { label:"数日前から", val:"fewdays" },
+        { label:"1週間以上前から", val:"week" },
+        { label:"ずっと前から慢性的に", val:"chronic" },
+      ], onDuration);
+    }, 600);
+  }, 400);
 }
 
-function askDuration() {
-  showChoices([
-    { label:"今日突然痛くなった", val:"today" },
-    { label:"数日前から", val:"fewdays" },
-    { label:"1週間以上前から", val:"week" },
-    { label:"ずっと前から慢性的に", val:"chronic" },
-  ], onDuration);
-}
-
+// ============================================================
+// 期間 → 気持ちの強さ確認
+// ============================================================
 function onDuration(val) {
   reserv.duration = val;
-  var msg, menu;
-  if (val === "today") { msg = "急な痛みはつらいですね 😢\nまずしっかり診てもらいましょう。"; menu = "初診（保険）"; }
-  else if (val === "fewdays") { msg = "数日続いているんですね。\n早めにケアしておくと安心ですよ 🌸"; menu = "初診（保険）"; }
-  else if (val === "week") { msg = "1週間以上続いているんですね。\n一度しっかり時間をかけて診てもらいませんか？"; menu = "おすすめ初診"; }
-  else { msg = "長い間お悩みだったんですね。\nそれはしんどかったですね 😢"; menu = "おすすめ初診"; }
+  var msg;
+  if (val === "today") msg = "急な痛みはつらいですね 😢\nまずしっかり診てもらいましょう。";
+  else if (val === "fewdays") msg = "数日続いているんですね。\n早めにケアしておくと安心ですよ 🌸";
+  else if (val === "week") msg = "1週間以上続いているんですね。\nしっかり時間をかけて診てもらいませんか？";
+  else msg = "長い間お悩みだったんですね。\nそれはしんどかったですね 😢";
 
   wait(function() {
     addBot(msg);
     wait(function() {
-      addBot("「" + menu + "」をおすすめします。");
-      wait(function() {
-        showChoices([
-          { label:"✅ " + menu + "で予約する", val:menu },
-          { label:"他のメニューを見る", val:"consult" },
-        ], onMenuSelect);
-      }, 600);
+      addBot("今のお気持ちに一番近いのはどれですか？");
+      wait(function() { askMotivation(); }, 600);
     }, 600);
   }, 400);
+}
+
+// ============================================================
+// 気持ちの強さ確認（核心）
+// ============================================================
+function askMotivation() {
+  showChoices([
+    { label:"とにかく早く痛みを取りたい", val:"quick" },
+    { label:"根本から治して再発させたくない", val:"fundamental" },
+    { label:"定期的にずっと診てもらいたい", val:"longterm" },
+    { label:"体の調子を維持・管理したい", val:"maintain" },
+  ], onMotivation);
+}
+
+function onMotivation(val) {
+  reserv.motivation = val;
+
+  if (val === "quick") {
+    wait(function() {
+      addBot("まず痛みを取ることを最優先にしましょう 🌸");
+      wait(function() { suggestMenu("初診（保険）"); }, 600);
+    }, 400);
+
+  } else if (val === "fundamental") {
+    wait(function() {
+      addBot("根本から改善したいというお気持ち、\nとても大切な考え方です 🌸");
+      wait(function() {
+        addBot("実は、痛みが取れても\n筋肉や神経が本当に回復するには\n約6ヶ月かかると言われています。\n\nその間に定期的にケアすることで\n「また痛くなるかも」という不安から\n解放された体が作られます。");
+        wait(function() {
+          addBot("まずは初診でお体の状態を確認して\n先生と一緒にケアプランを決めましょう 🌸");
+          wait(function() { showFundamentalPlan(); }, 800);
+        }, 800);
+      }, 600);
+    }, 400);
+
+  } else if (val === "longterm") {
+    wait(function() {
+      addBot("定期的に診てもらいたいというお気持ち、\nとても賢い選択です 🌸");
+      wait(function() {
+        addBot("歯科の定期検診と同じように\n体も定期的に診てもらうことで\n「悪くなる前に防ぐ」ことができます。\n\n施術を受けているという安心感が\n毎日の生活の質を上げてくれます。");
+        wait(function() { showLongtermPlan(); }, 800);
+      }, 600);
+    }, 400);
+
+  } else {
+    wait(function() {
+      addBot("体を大切にされているんですね 🌸");
+      wait(function() {
+        addBot("定期的なメンテナンスで\nいつも調子の良い状態を維持できます。\n\n2〜3ヶ月に1回のペースで\n体の状態を確認するだけで\n突然の悪化を防げます。");
+        wait(function() { showMaintenancePlan(); }, 800);
+      }, 600);
+    }, 400);
+  }
+}
+
+// ============================================================
+// プラン提案カード
+// ============================================================
+function showFundamentalPlan() {
+  var wrap = document.createElement("div");
+  wrap.className = "cardwrap";
+  wrap.innerHTML = '<div class="card gold">'
+    + '<h3>🌟 根本改善におすすめのプラン</h3>'
+    + '<p>【初期集中期】<br>週1〜2回で痛みと炎症を集中的に取り除く<br><br>'
+    + '【健康回復期】<br>体の動きと耐久性を回復させる<br><br>'
+    + '【健康維持期】<br>再発しない体をずっと維持する</p>'
+    + '<p style="background:#fef3c7;border-radius:8px;padding:8px;margin-top:4px;">'
+    + '⭐ サブスク会員なら<strong>月7,800円</strong>で<br>施術60分＋追加10%OFF</p>'
+    + '<div class="btnrow">'
+    + '<button class="btnok" onclick="onMotivationPlanOk()">初診を予約する</button>'
+    + '<a href="' + SQUARE_URL + '" target="_blank" class="btnok gold">サブスクも申し込む</a>'
+    + '</div></div>';
+  document.getElementById("msgs").appendChild(wrap);
+  scrollB();
+}
+
+function showLongtermPlan() {
+  var wrap = document.createElement("div");
+  wrap.className = "cardwrap";
+  wrap.innerHTML = '<div class="card gold">'
+    + '<h3>💎 定期ケア会員プラン</h3>'
+    + '<div class="price">月額 7,800円 <small>/月</small></div>'
+    + '<p>✅ 毎月の施術60分が含まれます<br>'
+    + '✅ 追加施術はすべて10%OFF<br>'
+    + '✅ 1日あたり260円で体の安心を維持<br>'
+    + '✅ 治療を受けているという安心感</p>'
+    + '<div class="btnrow">'
+    + '<a href="' + SQUARE_URL + '" target="_blank" class="btnok gold">今すぐ申し込む ✨</a>'
+    + '<button class="btnng" onclick="onMotivationPlanOk()">まず初診を予約</button>'
+    + '</div></div>';
+  document.getElementById("msgs").appendChild(wrap);
+  scrollB();
+}
+
+function showMaintenancePlan() {
+  var wrap = document.createElement("div");
+  wrap.className = "cardwrap";
+  wrap.innerHTML = '<div class="card">'
+    + '<h3>🌸 メンテナンスプラン</h3>'
+    + '<p>2〜3ヶ月に1回の定期ケアで<br>いつも調子の良い体を維持します。<br><br>'
+    + '酸素カプセル・楽トレの<br>回数券（11回分）もおすすめです。<br><br>'
+    + '<strong>3,900円</strong>で11回分 → 1回354円</p>'
+    + '<div class="btnrow">'
+    + '<button class="btnok" onclick="onMotivationPlanOk()">初診を予約する</button>'
+    + '<a href="' + SQUARE_URL + '" target="_blank" class="btnok gold">サブスクも見る</a>'
+    + '</div></div>';
+  document.getElementById("msgs").appendChild(wrap);
+  scrollB();
+}
+
+function onMotivationPlanOk() {
+  addBot("では予約に進みましょう 🌸");
+  wait(function() { suggestMenu("初診（保険）"); }, 600);
+}
+
+function suggestMenu(menu) {
+  reserv.menu = menu;
+  addBot("「" + menu + "」でご予約します 🌸");
+  wait(function() { askWho(); }, 600);
 }
 
 // ============================================================
@@ -467,12 +596,12 @@ function onMenuSelect(val) {
       wait(function() {
         showChoices([
           { label:"初診（保険）", val:"初診（保険）" },
-          { label:"おすすめ初診（じっくり診察）", val:"おすすめ初診" },
-          { label:"施術15分", val:"施術15分" },
-          { label:"施術30分", val:"施術30分" },
-          { label:"施術60分", val:"施術60分" },
-          { label:"楽トレ", val:"楽トレ" },
-          { label:"酸素カプセル", val:"酸素カプセル" },
+          { label:"施術15分　2,200円", val:"施術15分" },
+          { label:"施術30分　4,400円", val:"施術30分" },
+          { label:"施術60分　8,000円", val:"施術60分" },
+          { label:"施術75分　10,000円", val:"施術75分" },
+          { label:"楽トレ（EMS）390円", val:"楽トレ" },
+          { label:"酸素カプセル　390円", val:"酸素カプセル" },
           { label:"マンツーマントレーニング", val:"マンツーマントレーニング" },
         ], onMenuSelect);
       }, 600);
@@ -491,11 +620,7 @@ function onMenuSelect(val) {
 // ============================================================
 function askWho() {
   var choices = [{ label:"ご自身", val:"self" }];
-  if (family.length > 0) {
-    family.forEach(function(f, i) {
-      choices.push({ label:f.name + "さん", val:"family_" + i });
-    });
-  }
+  family.forEach(function(f, i) { choices.push({ label:f.name + "さん", val:"family_"+i }); });
   choices.push({ label:"家族・友人（新規登録）", val:"new_family" });
   addBot("ご予約はどなたのですか？");
   wait(function() { showChoices(choices, onWhoSelect); }, 600);
@@ -503,32 +628,20 @@ function askWho() {
 
 function onWhoSelect(val) {
   if (val === "self") {
-    reserv.sei = patient.sei || ""; reserv.mei = patient.mei || "";
-    reserv.seiKana = patient.seiKana || ""; reserv.meiKana = patient.meiKana || "";
-    reserv.tel = patient.tel || "";
-    if (patient.name) {
-      wait(function() { askDate(); }, 400);
-    } else {
-      wait(function() {
-        addBot("お名前を教えていただけますか？\n（例：山田 太郎）");
-        step = "name"; enableInput();
-      }, 400);
-    }
+    reserv.sei = patient.sei||""; reserv.mei = patient.mei||"";
+    reserv.seiKana = patient.seiKana||""; reserv.meiKana = patient.meiKana||"";
+    reserv.tel = patient.tel||"";
+    if (patient.name) { wait(function(){ askDate(); }, 400); }
+    else { wait(function(){ addBot("お名前を教えていただけますか？\n（例：山田 太郎）"); step="name"; enableInput(); }, 400); }
   } else if (val === "new_family") {
-    wait(function() {
-      addBot("ご家族・お友達のお名前を教えていただけますか？\n（例：山田 花子）");
-      step = "family_name"; enableInput();
-    }, 400);
+    wait(function(){ addBot("ご家族・お友達のお名前を教えてください。\n（例：山田 花子）"); step="family_name"; enableInput(); }, 400);
   } else {
     var idx = parseInt(val.replace("family_",""));
     var f = family[idx];
-    reserv.sei = f.sei || ""; reserv.mei = f.mei || "";
-    reserv.seiKana = f.seiKana || ""; reserv.meiKana = f.meiKana || "";
-    reserv.tel = f.tel || patient.tel || "";
-    wait(function() {
-      addBot(f.name + "さんのご予約ですね 🌸");
-      wait(function() { askDate(); }, 600);
-    }, 400);
+    reserv.sei=f.sei||""; reserv.mei=f.mei||"";
+    reserv.seiKana=f.seiKana||""; reserv.meiKana=f.meiKana||"";
+    reserv.tel=f.tel||patient.tel||"";
+    wait(function(){ addBot(f.name+"さんのご予約ですね 🌸"); wait(function(){ askDate(); }, 600); }, 400);
   }
 }
 
@@ -539,30 +652,22 @@ function askDate() {
   addBot("ご希望の日はいつですか？");
   wait(function() {
     var today = new Date();
-    var dayNames = ["日","月","火","水","木","金","土"];
+    var days = ["日","月","火","水","木","金","土"];
     var choices = [];
     for (var i=1;i<=8;i++) {
       var d = new Date(today); d.setDate(today.getDate()+i);
       if (d.getDay()===0) continue;
-      var label = (d.getMonth()+1)+"月"+d.getDate()+"日（"+dayNames[d.getDay()]+"）";
-      var val = d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
-      choices.push({label:label,val:val});
+      choices.push({ label:(d.getMonth()+1)+"月"+d.getDate()+"日（"+days[d.getDay()]+"）", val:d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()) });
     }
-    choices.push({label:"他の日を入力する",val:"other_date"});
+    choices.push({ label:"他の日を入力する", val:"other_date" });
     showChoices(choices, onDateSelect);
   }, 600);
 }
 
 function onDateSelect(val) {
-  if (val === "other_date") {
-    wait(function() {
-      addBot("ご希望の日付を入力してください。\n（例：2026-03-15）");
-      step = "date"; enableInput();
-    }, 400);
-    return;
-  }
+  if (val === "other_date") { wait(function(){ addBot("ご希望の日付を入力してください。\n（例：2026-03-15）"); step="date"; enableInput(); }, 400); return; }
   reserv.date = val;
-  wait(function() { loadSlots(val); }, 400);
+  wait(function(){ loadSlots(val); }, 400);
 }
 
 // ============================================================
@@ -570,48 +675,37 @@ function onDateSelect(val) {
 // ============================================================
 function loadSlots(date) {
   showTyping();
-  fetch(GAS_URL, {
-    method:"POST",
-    body:JSON.stringify({ action:"getSuggestedSlots", date:date, menu:reserv.menu }),
-  })
+  fetch(GAS_URL, { method:"POST", body:JSON.stringify({ action:"getSuggestedSlots", date:date, menu:reserv.menu }) })
   .then(function(r){return r.json();})
-  .then(function(data){
+  .then(function(data) {
     removeTyping();
     if (!data.success || data.slots.length===0) {
       addBot("申し訳ありません。その日は空きがありませんでした 😢");
-      wait(function() { askDate(); }, 600);
-      return;
+      wait(function(){ askDate(); }, 600); return;
     }
-    addBot("空きがございます 🌸");
+    addBot("空きがございます 🌸\nご希望の時間をお選びください。");
     wait(function() {
-      addBot("ご希望の時間をお選びください。");
-      wait(function() {
-        var wrap = document.createElement("div");
-        wrap.className = "slots";
-        data.slots.slice(0,12).forEach(function(s){
-          var btn = document.createElement("button");
-          btn.className = "slotbtn"; btn.textContent = s;
-          btn.onclick = function(){
-            wrap.querySelectorAll("button").forEach(function(b){b.disabled=true;b.style.opacity="0.4";});
-            onTimeSelect(s);
-          };
-          wrap.appendChild(btn);
-        });
-        document.getElementById("msgs").appendChild(wrap);
-        scrollB();
-      }, 600);
-    }, 400);
+      var wrap = document.createElement("div"); wrap.className = "slots";
+      data.slots.slice(0,12).forEach(function(s) {
+        var btn = document.createElement("button"); btn.className = "slotbtn"; btn.textContent = s;
+        btn.onclick = function() {
+          wrap.querySelectorAll("button").forEach(function(b){b.disabled=true;b.style.opacity="0.4";});
+          onTimeSelect(s);
+        };
+        wrap.appendChild(btn);
+      });
+      document.getElementById("msgs").appendChild(wrap); scrollB();
+    }, 600);
   })
-  .catch(function(){
+  .catch(function() {
     removeTyping();
     addBot("空き確認でエラーが発生しました。\nお電話（078-984-5788）でもご予約いただけます。","error");
   });
 }
 
 function onTimeSelect(time) {
-  addUser(time);
-  reserv.time = time;
-  if (!reserv.tel && !patient.tel) {
+  addUser(time); reserv.time = time;
+  if (!reserv.tel) {
     wait(function() {
       addBot("ご連絡先をお聞かせください 🌸");
       wait(function() {
@@ -621,9 +715,7 @@ function onTimeSelect(time) {
         ], onContactSelect);
       }, 600);
     }, 400);
-  } else {
-    wait(function() { showConfirmCard(); }, 400);
-  }
+  } else { wait(function(){ showConfirmCard(); }, 400); }
 }
 
 // ============================================================
@@ -631,25 +723,16 @@ function onTimeSelect(time) {
 // ============================================================
 function onContactSelect(val) {
   if (val === "tel") {
-    wait(function() {
-      addBot("電話番号を入力してください。\n（ハイフンなし・例：0789845788）");
-      step = "tel"; enableInput();
-    }, 400);
+    wait(function(){ addBot("電話番号を入力してください。\n（ハイフンなし・例：0789845788）"); step="tel"; enableInput(); }, 400);
   } else {
     reserv.tel = "LINE登録";
-    wait(function() {
-      addBot("下のボタンからLINEお友達登録をお願いします 🌸");
-      var wrap = document.createElement("div");
-      wrap.className = "cardwrap";
-      var btn = document.createElement("button");
-      btn.className = "linebtn";
-      btn.innerHTML = "💚 LINEでお友達登録する";
-      btn.onclick = function(){ window.open(LINE_URL,"_blank"); };
-      wrap.appendChild(btn);
-      document.getElementById("msgs").appendChild(wrap);
-      scrollB();
-      wait(function() { showConfirmCard(); }, 800);
-    }, 400);
+    var wrap = document.createElement("div"); wrap.className = "cardwrap";
+    var btn = document.createElement("button"); btn.className = "linebtn";
+    btn.innerHTML = "💚 LINEでお友達登録する";
+    btn.onclick = function(){ window.open(LINE_URL,"_blank"); };
+    wrap.appendChild(btn);
+    document.getElementById("msgs").appendChild(wrap); scrollB();
+    wait(function(){ showConfirmCard(); }, 800);
   }
 }
 
@@ -661,8 +744,7 @@ function showConfirmCard() {
   wait(function() {
     var name = (reserv.sei||"")+" "+(reserv.mei||"");
     var kana = (reserv.seiKana||"")+" "+(reserv.meiKana||"");
-    var wrap = document.createElement("div");
-    wrap.className = "cardwrap";
+    var wrap = document.createElement("div"); wrap.className = "cardwrap";
     wrap.innerHTML = '<div class="card"><h3>📋 予約内容の確認</h3>'
       + row("お名前", name+"（"+kana+"）")
       + row("連絡先", reserv.tel||"")
@@ -672,8 +754,7 @@ function showConfirmCard() {
       + '<button class="btnok" onclick="confirmReservation()">この内容で予約する</button>'
       + '<button class="btnng" onclick="correctReservation()">訂正する</button>'
       + '</div></div>';
-    document.getElementById("msgs").appendChild(wrap);
-    scrollB();
+    document.getElementById("msgs").appendChild(wrap); scrollB();
   }, 400);
 }
 
@@ -689,22 +770,14 @@ function correctReservation() {
       { label:"連絡先", val:"fix_tel" },
       { label:"メニュー", val:"fix_menu" },
       { label:"日時", val:"fix_date" },
-    ], onCorrect);
+    ], function(val) {
+      if (val==="fix_name") { wait(function(){ addBot("お名前を入力してください。"); step="name"; enableInput(); },400); }
+      else if (val==="fix_kana") { wait(function(){ addBot("フリガナを入力してください。"); step="kana"; enableInput(); },400); }
+      else if (val==="fix_tel") { wait(function(){ addBot("電話番号を入力してください。"); step="tel"; enableInput(); },400); }
+      else if (val==="fix_menu") { wait(function(){ onMenuSelect("consult"); },400); }
+      else if (val==="fix_date") { wait(function(){ askDate(); },400); }
+    });
   }, 600);
-}
-
-function onCorrect(val) {
-  if (val === "fix_name") {
-    wait(function() { addBot("お名前を入力してください。"); step="name"; enableInput(); }, 400);
-  } else if (val === "fix_kana") {
-    wait(function() { addBot("フリガナを入力してください。"); step="kana"; enableInput(); }, 400);
-  } else if (val === "fix_tel") {
-    wait(function() { addBot("電話番号を入力してください。"); step="tel"; enableInput(); }, 400);
-  } else if (val === "fix_menu") {
-    wait(function() { onMenuSelect("consult"); }, 400);
-  } else if (val === "fix_date") {
-    wait(function() { askDate(); }, 400);
-  }
 }
 
 // ============================================================
@@ -713,25 +786,23 @@ function onCorrect(val) {
 function confirmReservation() {
   addBot("予約の手続きをしています 🌸");
   showTyping();
-  fetch(GAS_URL, {
-    method:"POST",
-    body:JSON.stringify(Object.assign({action:"makeReservation"},reserv)),
-  })
+  // motivationをメモに追加
+  var motivationText = { quick:"早く痛みを取りたい", fundamental:"根本から改善・再発させたくない", longterm:"定期的にずっと診てもらいたい", maintain:"体の維持・管理がしたい" };
+  reserv.motivationText = motivationText[reserv.motivation] || "";
+
+  fetch(GAS_URL, { method:"POST", body:JSON.stringify(Object.assign({action:"makeReservation"},reserv)) })
   .then(function(r){return r.json();})
-  .then(function(data){
+  .then(function(data) {
     removeTyping();
     if (data.success) {
-      // 患者情報を保存
       if (!patient.name && reserv.sei) {
-        patient.sei = reserv.sei; patient.mei = reserv.mei;
-        patient.seiKana = reserv.seiKana; patient.meiKana = reserv.meiKana;
-        patient.name = reserv.sei+" "+reserv.mei;
-        patient.tel = reserv.tel;
+        patient.sei=reserv.sei; patient.mei=reserv.mei;
+        patient.seiKana=reserv.seiKana; patient.meiKana=reserv.meiKana;
+        patient.name=reserv.sei+" "+reserv.mei; patient.tel=reserv.tel;
         saveData("sakura_patient", patient);
       }
       addBot("ご予約の手続きが完了しました 🌸\nご確認まで少々お待ちください。");
-      // 30秒後に裏でカレンダー確認（GAS側で実装）
-      wait(function() { askArrival(); }, 1000);
+      wait(function(){ askArrival(); }, 1000);
     } else {
       addBot("⚠️ 予約登録に問題が発生しました。\nお電話（078-984-5788）でご確認ください。","error");
     }
@@ -747,72 +818,69 @@ function askArrival() {
     showChoices([
       { label:"車で来る", val:"car" },
       { label:"徒歩・電車で来る", val:"walk" },
-    ], onArrival);
+    ], function(val) {
+      wait(function() {
+        addBot("どちら方面からお越しですか？");
+        wait(function() {
+          showChoices([
+            { label:"神戸方面から", val:"kobe" },
+            { label:"三田市方面から", val:"sanda" },
+          ], onDirection);
+        }, 600);
+      }, 400);
+    });
   }, 600);
 }
 
-function onArrival(val) {
-  if (val === "car") {
-    wait(function() {
-      addBot("どちら方面からお越しですか？");
-      wait(function() {
-        showChoices([
-          { label:"神戸方面から", val:"kobe" },
-          { label:"三田市方面から", val:"sanda" },
-        ], onDirection);
-      }, 600);
-    }, 400);
-  } else {
-    wait(function() {
-      addBot("どちら方面からお越しですか？");
-      wait(function() {
-        showChoices([
-          { label:"神戸方面から", val:"kobe" },
-          { label:"三田市方面から", val:"sanda" },
-        ], onDirection);
-      }, 600);
-    }, 400);
-  }
-}
-
 function onDirection(val) {
-  var url = val === "kobe" ? YOUTUBE_KOBE : YOUTUBE_SANDA;
-  var label = val === "kobe" ? "神戸方面" : "三田市方面";
+  var url = val==="kobe" ? YOUTUBE_KOBE : YOUTUBE_SANDA;
+  var label = val==="kobe" ? "神戸方面" : "三田市方面";
   wait(function() {
-    addBot(label + "からのルートをご案内します 🌸");
-    wait(function() {
-      var wrap = document.createElement("div");
-      wrap.className = "cardwrap";
-      var btn = document.createElement("a");
-      btn.className = "ytbtn"; btn.href = url; btn.target = "_blank";
-      btn.innerHTML = "▶ YouTubeでルートを確認する";
-      wrap.appendChild(btn);
-      document.getElementById("msgs").appendChild(wrap);
-      scrollB();
-      wait(function() { showFinalConfirm(); }, 1000);
-    }, 600);
+    addBot(label+"からのルートをご案内します 🌸");
+    var wrap = document.createElement("div"); wrap.className = "cardwrap";
+    var btn = document.createElement("a"); btn.className="ytbtn"; btn.href=url; btn.target="_blank";
+    btn.innerHTML = "▶ YouTubeでルートを確認する";
+    wrap.appendChild(btn);
+    document.getElementById("msgs").appendChild(wrap); scrollB();
+    wait(function(){ showFinalConfirm(); }, 1000);
   }, 400);
 }
 
 // ============================================================
-// 最終確認（裏でカレンダー確認済みの予約表示）
+// 予約確定カード + サブスク誘導
 // ============================================================
 function showFinalConfirm() {
   addBot("ご予約が確定しました ✅");
   wait(function() {
-    var wrap = document.createElement("div");
-    wrap.className = "cardwrap";
+    var wrap = document.createElement("div"); wrap.className = "cardwrap";
     wrap.innerHTML = '<div class="card"><h3>✅ 予約確定</h3>'
-      + row("お名前", (reserv.sei||"")+" "+(reserv.mei||""))
-      + row("メニュー", reserv.menu||"")
-      + row("日時", (reserv.date||"")+" "+(reserv.time||""))
-      + row("ご連絡先", reserv.tel||"")
+      + row("お名前",(reserv.sei||"")+" "+(reserv.mei||""))
+      + row("メニュー",reserv.menu||"")
+      + row("日時",(reserv.date||"")+" "+(reserv.time||""))
+      + row("ご連絡先",reserv.tel||"")
       + '</div>';
-    document.getElementById("msgs").appendChild(wrap);
-    scrollB();
-    wait(function() {
-      addBot("当日はお気をつけてお越しください 🌸\nご不明な点はお電話（078-984-5788）までどうぞ。");
-    }, 400);
+    document.getElementById("msgs").appendChild(wrap); scrollB();
+
+    // 根本改善・定期ケア希望の方にはサブスクを再提案
+    if (reserv.motivation === "fundamental" || reserv.motivation === "longterm" || reserv.motivation === "maintain") {
+      wait(function() {
+        addBot("初診後、先生と一緒にケアプランを決めましょう 🌸\n\nサブスク会員（月7,800円）に入ると\n施術60分＋追加10%OFFで\n定期ケアがとてもお得になります。");
+        wait(function() {
+          var w2 = document.createElement("div"); w2.className = "cardwrap";
+          w2.innerHTML = '<div class="btnrow" style="padding:0 16px 4px 56px;">'
+            + '<a href="' + SQUARE_URL + '" target="_blank" class="btnok gold" style="text-decoration:none;">サブスクに申し込む ✨</a>'
+            + '</div>';
+          document.getElementById("msgs").appendChild(w2); scrollB();
+          wait(function() {
+            addBot("当日はお気をつけてお越しください 🌸\nご不明な点はお電話（078-984-5788）までどうぞ。");
+          }, 400);
+        }, 600);
+      }, 800);
+    } else {
+      wait(function() {
+        addBot("当日はお気をつけてお越しください 🌸\nご不明な点はお電話（078-984-5788）までどうぞ。");
+      }, 600);
+    }
   }, 400);
 }
 
@@ -823,45 +891,26 @@ function onVisitAddress(address) {
   reserv.visitAddress = address;
   addBot("距離を確認しています...");
   showTyping();
-  fetch(GAS_URL, {
-    method:"POST",
-    body:JSON.stringify({ action:"calcDistance", address:address }),
-  })
+  fetch(GAS_URL, { method:"POST", body:JSON.stringify({ action:"calcDistance", address:address }) })
   .then(function(r){return r.json();})
-  .then(function(data){
+  .then(function(data) {
     removeTyping();
-    var msgs = document.getElementById("msgs");
-    msgs.lastElementChild.remove();
+    document.getElementById("msgs").lastElementChild.remove();
     if (data.success) {
-      var km = data.distanceKm;
-      var fee = 0;
-      if (km >= 10) {
-        fee = Math.ceil((km*2)/3)*1000;
-      }
-      if (fee > 0) {
-        addBot("当院から約" + km + "kmですね。\n往復交通費として " + fee.toLocaleString() + "円が別途発生します。");
-      } else {
-        addBot("当院から約" + km + "kmですね。\n交通費は無料です 🌸");
-      }
-      reserv.visitFee = fee;
-      reserv.menu = "往診";
+      var fee = data.fee;
+      if (fee > 0) { addBot("当院から約"+data.distanceKm+"kmですね。\n往復交通費として "+fee.toLocaleString()+"円が別途発生します。"); }
+      else { addBot("当院から約"+data.distanceKm+"kmですね。\n交通費は無料です 🌸"); }
+      reserv.visitFee = fee; reserv.menu = "往診";
       wait(function() {
         showChoices([
           { label:"この条件で予約する", val:"ok" },
           { label:"キャンセルする", val:"cancel" },
-        ], function(val) {
-          if (val === "ok") {
-            wait(function() { askWho(); }, 400);
-          } else {
-            wait(function() {
-              addBot("またのご利用をお待ちしております 🌸");
-            }, 400);
-          }
+        ], function(v) {
+          if (v==="ok") { wait(function(){ askWho(); }, 400); }
+          else { wait(function(){ addBot("またのご利用をお待ちしております 🌸"); }, 400); }
         });
       }, 600);
-    } else {
-      addBot("住所の確認ができませんでした。\nお電話（078-984-5788）でご相談ください。","error");
-    }
+    } else { addBot("住所の確認ができませんでした。\nお電話（078-984-5788）でご相談ください。","error"); }
   });
 }
 
@@ -870,26 +919,15 @@ function onVisitAddress(address) {
 // ============================================================
 function handleFreeInput(text) {
   showTyping();
-  fetch(GAS_URL, {
-    method:"POST",
-    body:JSON.stringify({ action:"judgeIntent", text:text, reserv:reserv }),
-  })
+  fetch(GAS_URL, { method:"POST", body:JSON.stringify({ action:"judgeIntent", text:text, reserv:reserv }) })
   .then(function(r){return r.json();})
-  .then(function(data){
+  .then(function(data) {
     removeTyping();
     addBot(data.reply);
-    if (data.intent === "restart") {
-      reserv = {}; step = "";
-      wait(function() { askPurpose(); }, 800);
-    } else if (data.intent === "correct") {
-      wait(function() { correctReservation(); }, 800);
-    } else if (data.intent === "symptom") {
-      reserv.location = data.location || text;
-      wait(function() { askDuration(); }, 800);
-    } else if (data.intent === "menu") {
-      wait(function() { onMenuSelect(data.menu || "consult"); }, 800);
-    }
-    // unknownの場合はそのまま会話継続
+    if (data.intent==="restart") { reserv={}; step=""; wait(function(){ askPurpose(); }, 800); }
+    else if (data.intent==="correct") { wait(function(){ correctReservation(); }, 800); }
+    else if (data.intent==="symptom") { reserv.location=data.location||text; wait(function(){ askMotivation(); }, 800); }
+    else if (data.intent==="menu") { wait(function(){ onMenuSelect(data.menu||"consult"); }, 800); }
   });
 }
 
@@ -900,101 +938,55 @@ function sendText() {
   var inp = document.getElementById("inp");
   var text = inp.value.trim();
   if (!text) return;
-  addUser(text);
-  inp.value = ""; inp.style.height = "auto";
-  disableInput();
+  addUser(text); inp.value=""; inp.style.height="auto"; disableInput();
 
-  if (step === "name") {
-    step = "";
-    var parts = text.trim().split(/[\s　]+/);
-    reserv.sei = parts[0]||text; reserv.mei = parts[1]||"";
-    wait(function() { addBot("フリガナを教えていただけますか？\n（例：ヤマダ タロウ）"); step="kana"; enableInput(); }, 400);
-
-  } else if (step === "kana") {
-    step = "";
-    var kp = text.trim().split(/[\s　]+/);
-    reserv.seiKana = kp[0]||text; reserv.meiKana = kp[1]||"";
+  if (step==="name") {
+    step=""; var p=text.trim().split(/[\s　]+/); reserv.sei=p[0]||text; reserv.mei=p[1]||"";
+    wait(function(){ addBot("フリガナを教えていただけますか？\n（例：ヤマダ タロウ）"); step="kana"; enableInput(); }, 400);
+  } else if (step==="kana") {
+    step=""; var kp=text.trim().split(/[\s　]+/); reserv.seiKana=kp[0]||text; reserv.meiKana=kp[1]||"";
+    wait(function(){ showChoices([{label:"📱 電話番号を入力する",val:"tel"},{label:"💚 LINEでお友達登録する",val:"line"}],onContactSelect); }, 400);
+  } else if (step==="tel") {
+    step=""; reserv.tel=text; wait(function(){ askDate(); }, 400);
+  } else if (step==="date") {
+    step=""; reserv.date=text; wait(function(){ loadSlots(text); }, 400);
+  } else if (step==="family_name") {
+    step=""; var fp=text.trim().split(/[\s　]+/);
+    window._tmpFamily={name:text.trim(),sei:fp[0]||text,mei:fp[1]||"",seiKana:"",meiKana:"",tel:""};
+    wait(function(){ addBot("フリガナを教えていただけますか？"); step="family_kana"; enableInput(); }, 400);
+  } else if (step==="family_kana") {
+    step=""; var fkp=text.trim().split(/[\s　]+/);
+    window._tmpFamily.seiKana=fkp[0]||text; window._tmpFamily.meiKana=fkp[1]||"";
     wait(function() {
-      showChoices([
-        { label:"📱 電話番号を入力する", val:"tel" },
-        { label:"💚 LINEでお友達登録する", val:"line" },
-      ], onContactSelect);
-    }, 400);
-
-  } else if (step === "tel") {
-    step = ""; reserv.tel = text;
-    wait(function() { showConfirmCard(); }, 400);
-
-  } else if (step === "date") {
-    step = ""; reserv.date = text;
-    wait(function() { loadSlots(text); }, 400);
-
-  } else if (step === "family_name") {
-    step = "";
-    var fp = text.trim().split(/[\s　]+/);
-    var newFamily = { name:text.trim(), sei:fp[0]||text, mei:fp[1]||"", seiKana:"", meiKana:"", tel:"" };
-    wait(function() {
-      addBot("フリガナを教えていただけますか？");
-      step = "family_kana";
-      window._tmpFamily = newFamily;
-      enableInput();
-    }, 400);
-
-  } else if (step === "family_kana") {
-    step = "";
-    var fkp = text.trim().split(/[\s　]+/);
-    window._tmpFamily.seiKana = fkp[0]||text;
-    window._tmpFamily.meiKana = fkp[1]||"";
-    wait(function() {
-      addBot("電話番号はありますか？\n（お持ちでない場合はスキップできます）");
-      showChoices([
-        { label:"入力する", val:"yes" },
-        { label:"スキップ", val:"skip" },
-      ], function(v) {
+      addBot("電話番号はありますか？");
+      showChoices([{label:"入力する",val:"yes"},{label:"スキップ",val:"skip"}], function(v) {
         if (v==="yes") { step="family_tel"; enableInput(); }
         else {
-          if (family.length < 10) { family.push(window._tmpFamily); saveData("sakura_family",family); }
-          reserv.sei = window._tmpFamily.sei; reserv.mei = window._tmpFamily.mei;
-          reserv.seiKana = window._tmpFamily.seiKana; reserv.meiKana = window._tmpFamily.meiKana;
-          reserv.tel = patient.tel||"";
-          wait(function() { askDate(); }, 400);
+          if (family.length<10){ family.push(window._tmpFamily); saveData("sakura_family",family); }
+          reserv.sei=window._tmpFamily.sei; reserv.mei=window._tmpFamily.mei;
+          reserv.seiKana=window._tmpFamily.seiKana; reserv.meiKana=window._tmpFamily.meiKana;
+          reserv.tel=patient.tel||"";
+          wait(function(){ askDate(); }, 400);
         }
       });
     }, 400);
-
-  } else if (step === "family_tel") {
-    step = "";
-    window._tmpFamily.tel = text;
-    if (family.length < 10) { family.push(window._tmpFamily); saveData("sakura_family",family); }
-    reserv.sei = window._tmpFamily.sei; reserv.mei = window._tmpFamily.mei;
-    reserv.seiKana = window._tmpFamily.seiKana; reserv.meiKana = window._tmpFamily.meiKana;
-    reserv.tel = text;
-    wait(function() { askDate(); }, 400);
-
-  } else if (step === "visit_address") {
-    step = "";
-    wait(function() { onVisitAddress(text); }, 400);
-
-  } else if (step === "complaint") {
-    step = "";
-    fetch(GAS_URL, {
-      method:"POST",
-      body:JSON.stringify({ action:"notifyStaff", type:"complaint", message:text, patient:patient.name }),
-    });
-    wait(function() {
-      addBot("ありがとうございます。必ずスタッフに伝えます 🌸");
-      wait(function() { askPurpose(); }, 600);
-    }, 400);
-
-  } else if (step === "survey_symptom") {
-    step = "";
-    surveyAnswers.symptom = text;
-    wait(function() { surveyQ2(); }, 400);
-
-  } else if (step === "other_free" || step === "location_free") {
-    step = "";
-    handleFreeInput(text);
-
+  } else if (step==="family_tel") {
+    step=""; window._tmpFamily.tel=text;
+    if (family.length<10){ family.push(window._tmpFamily); saveData("sakura_family",family); }
+    reserv.sei=window._tmpFamily.sei; reserv.mei=window._tmpFamily.mei;
+    reserv.seiKana=window._tmpFamily.seiKana; reserv.meiKana=window._tmpFamily.meiKana;
+    reserv.tel=text;
+    wait(function(){ askDate(); }, 400);
+  } else if (step==="visit_address") {
+    step=""; wait(function(){ onVisitAddress(text); }, 400);
+  } else if (step==="complaint") {
+    step="";
+    fetch(GAS_URL, { method:"POST", body:JSON.stringify({ action:"notifyStaff", type:"complaint", message:text, patient:patient.name }) });
+    wait(function(){ addBot("ありがとうございます。必ずスタッフに伝えます 🌸"); wait(function(){ askPurpose(); }, 600); }, 400);
+  } else if (step==="survey_symptom") {
+    step=""; surveyAnswers.symptom=text; wait(function(){ surveyPain1(); }, 400);
+  } else if (step==="location_free") {
+    step=""; reserv.location=text; wait(function(){ askMotivation(); }, 400);
   } else {
     handleFreeInput(text);
   }
@@ -1004,9 +996,11 @@ function sendText() {
 // ユーティリティ
 // ============================================================
 function showChoices(choices, cb) {
-  var wrap = document.createElement("div"); wrap.className = "choices";
+  var wrap = document.createElement("div"); wrap.className="choices";
   choices.forEach(function(c) {
-    var btn = document.createElement("button"); btn.className = "cbtn"; btn.textContent = c.label;
+    var btn = document.createElement("button");
+    btn.className = "cbtn" + (c.gold ? " gold" : "");
+    btn.textContent = c.label;
     btn.onclick = function() {
       wrap.querySelectorAll("button").forEach(function(b){b.disabled=true;b.style.opacity="0.4";});
       addUser(c.label);
@@ -1018,36 +1012,36 @@ function showChoices(choices, cb) {
 }
 
 function addBot(text, type) {
-  var w = document.createElement("div"); w.className = "bw";
-  w.innerHTML = '<div class="av">🌸</div><div class="bub bot '+(type||"")+'">'+esc(text)+'</div>';
+  var w=document.createElement("div"); w.className="bw";
+  w.innerHTML='<div class="av">🌸</div><div class="bub bot '+(type||"")+'">'+esc(text)+'</div>';
   document.getElementById("msgs").appendChild(w); scrollB();
 }
 function addUser(text) {
-  var w = document.createElement("div"); w.className = "bw user";
-  w.innerHTML = '<div class="bub user">'+esc(text)+'</div>';
+  var w=document.createElement("div"); w.className="bw user";
+  w.innerHTML='<div class="bub user">'+esc(text)+'</div>';
   document.getElementById("msgs").appendChild(w); scrollB();
 }
 function showTyping() {
-  var el = document.createElement("div"); el.className = "bw"; el.id = "typing";
-  el.innerHTML = '<div class="av">🌸</div><div class="typing-bub"><span></span><span></span><span></span></div>';
+  var el=document.createElement("div"); el.className="bw"; el.id="typing";
+  el.innerHTML='<div class="av">🌸</div><div class="typing-bub"><span></span><span></span><span></span></div>';
   document.getElementById("msgs").appendChild(el); scrollB();
 }
-function removeTyping() { var el = document.getElementById("typing"); if(el) el.remove(); }
+function removeTyping() { var el=document.getElementById("typing"); if(el) el.remove(); }
 function enableInput() {
-  var i=document.getElementById("inp"), b=document.getElementById("sbtn");
+  var i=document.getElementById("inp"),b=document.getElementById("sbtn");
   i.disabled=false; b.disabled=false; i.placeholder="メッセージを入力..."; i.focus();
 }
 function disableInput() {
-  var i=document.getElementById("inp"), b=document.getElementById("sbtn");
+  var i=document.getElementById("inp"),b=document.getElementById("sbtn");
   i.disabled=true; b.disabled=true; i.placeholder="上の選択肢からお選びください";
 }
-function scrollB() { var m=document.getElementById("msgs"); m.scrollTop=m.scrollHeight; }
-function esc(t) { return String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\n/g,"<br>"); }
-function wait(fn,ms) { setTimeout(fn,ms||400); }
-function pad(n) { return ("0"+n).slice(-2); }
-function row(l,v) { return '<div class="row"><span class="lbl">'+l+'</span><span>'+esc(v)+'</span></div>'; }
-function saveData(k,v) { try{localStorage.setItem(k,JSON.stringify(v));}catch(e){} }
-function loadData(k) { try{var d=localStorage.getItem(k);return d?JSON.parse(d):null;}catch(e){return null;} }
+function scrollB(){ var m=document.getElementById("msgs"); m.scrollTop=m.scrollHeight; }
+function esc(t){ return String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\n/g,"<br>"); }
+function wait(fn,ms){ setTimeout(fn,ms||400); }
+function pad(n){ return ("0"+n).slice(-2); }
+function row(l,v){ return '<div class="row"><span class="lbl">'+l+'</span><span>'+esc(v)+'</span></div>'; }
+function saveData(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){} }
+function loadData(k){ try{var d=localStorage.getItem(k);return d?JSON.parse(d):null;}catch(e){return null;} }
 
 document.getElementById("inp").addEventListener("keydown",function(e){
   if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendText();}

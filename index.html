@@ -1256,6 +1256,18 @@ function showHokenShinsatsuCard(callback) {
     reserv.insType = insType;
     var fee = insuranceFeeLabel(insType, "hoken");
     addBot("初診（保険）の料金目安：" + fee + "\n施療時間：約20分");
+
+    var visitCount = (reserv.visitCountThisMonth || 0) + 1;
+    var isAccident = (reserv.purpose === "accident");
+    var isFirstVisit = (visitCount === 1);
+
+    // 初診（1回目）・交通事故はポイント案内不要
+    if (isFirstVisit || isAccident) {
+      wait(function(){ callback(insType); }, 600);
+      return;
+    }
+
+    // 再診以降はポイント案内
     wait(function(){
       addBot("💡 自費施療応援ポイント実施中です 🌸\n詳しく聞きますか？");
       wait(function(){

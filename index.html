@@ -214,11 +214,11 @@ function restoreByTel(tel) {
     { action:"searchPatient", kana:"", tel:tel },
     function(d) {
       if (d.success && d.found) {
-        addBot("お客様情報が見つかりました 🌸\nご確認のためお客様番号（カルテ番号）を入力してください。");
+        addBot("情報が見つかりました 🌸\n本人確認のため、診察券のNoを入力してください。");
         window._restoreData = d;
         step = "restore_karteid"; enableInput();
       } else {
-        addBot("お客様情報が見つかりませんでした。\n新規のお客様として進めます 🌸");
+        addBot("情報が見つかりませんでした。\n新規のお客様として進めます 🌸");
         wait(function(){ askPurpose(); }, 800);
       }
     },
@@ -229,14 +229,12 @@ function restoreByTel(tel) {
   );
 }
 
-// カルテ番号照合
+// 診察券No照合
 function verifyKarteId(karteid) {
   var d = window._restoreData;
   if (!d) { wait(function(){ askPurpose(); }, 400); return; }
 
-  // customerNoと照合
   if (String(d.customerNo) === String(karteid).trim()) {
-    // 復元成功
     patient.name     = d.name     || patient.name || "";
     patient.sei      = d.sei      || "";
     patient.mei      = d.mei      || "";
@@ -290,42 +288,201 @@ function askWhoForReturn() {
 }
 
 // ============================================================
-// 過去3ヶ月の予約パターン確認
+// 過去予約確認・3ヶ月分岐
 // ============================================================
 function checkPastReservations() {
+  showTyping();
   gasPost(
     { action:"getPastReservations", name:reserv.sei+" "+reserv.mei, tel:reserv.tel },
     function(d) {
-      if (d.success && d.lastMenu) {
-        addBot("前回は「" + d.lastMenu + "」でご予約でした 🌸\n同じメニューでよろしいですか？");
+      removeTyping();
+      if (!d.success || !d.found || !d.lastDate) {
+        wait(function(){ askPrevFeedbackOrPurpose(); }, 400);
+        return;
+      }
+
+      // 1ヶ月以内の来院回数を保存（料金計算に使用）
+      reserv.visitCountThisMonth = d.visitCountThisMonth || 0;
+
+      var daysSince = Math.floor((new Date() - new Date(d.lastDate)) / (1000*60*60*24));
+
+      if (daysSince > 90) {
+        // 3ヶ月以上→初回と同じ扱い
+        reserv.visitCountThisMonth = 0; // リセット
+        addBot("しばらくぶりですね 🌸\nまた来てくださってありがとうございます。");
+        wait(function(){ askPrevFeedbackOrPurpose(); }, 600);
+
+      } else if (daysSince > 30) {
+        // 1ヶ月以上3ヶ月未満→初診（保険）or おすすめ初診を選べる
+        addBot("前回から" + daysSince + "日ぶりですね 🌸\nメニューはどうしますか？");
         wait(function(){
           showChoices([
-            { label:"はい、" + d.lastMenu + "で予約する", val:"same" },
-            { label:"別のメニューにする", val:"other" },
+            { label:"おすすめ初診　（問診・検査あり）", val:"shinsatsu" },
+            { label:"初診（保険）　検査なし・約20分",   val:"hoken" },
           ], function(v){
-            if (v === "same") {
-              reserv.menu = d.lastMenu;
-              addBot("「" + d.lastMenu + "」ですね 🌸");
-              wait(function(){ askDate(); }, 600);
+            if (v==="shinsatsu") {
+              wait(function(){ showShinsatsuCard(); }, 400);
             } else {
-              wait(function(){ askPurpose(); }, 400);
+              wait(function(){
+                showHokenShinsatsuCard(function(insType){
+                  reserv.menu="初診（保険）";
+                  addBot("初診（保険）で予約します 🌸");
+                  wait(function(){ askWho(); }, 600);
+                });
+              }, 400);
             }
           });
         }, 600);
+
       } else {
-        // 過去予約なし or 取得失敗→通常フローへ
+        // 1ヶ月以内→前回と同じ症状か確認
+        addBot("前回は「" + d.lastMenu + "」でご予約でした。\n前回と同じ症状ですか？");
         wait(function(){
-          var shouldSurvey = checkShouldAskSurvey();
-          if (shouldSurvey) { askPrevFeedback(); }
-          else { askPurpose(); }
-        }, 400);
+          showChoices([
+            { label:"はい、同じです",       val:"same_symptom" },
+            { label:"いいえ、違う症状です", val:"diff_symptom" },
+          ], function(v){
+            if (v === "diff_symptom") {
+              wait(function(){ askPurposeOnly(); }, 400);
+            } else {
+              wait(function(){ askRepeatMenu(d.lastMenu); }, 400);
+            }
+          });
+        }, 600);
       }
     },
     function(){
-      // エラー時も通常フローへ
-      wait(function(){ askPurpose(); }, 400);
+      removeTyping();
+      wait(function(){ askPrevFeedbackOrPurpose(); }, 400);
     }
   );
+}
+
+function askPrevFeedbackOrPurpose() {
+  if (checkShouldAskSurvey()) { askPrevFeedback(); }
+  else { askPurpose(); }
+}
+
+// ============================================================
+// リピーター：前回メニュー別フロー
+// ============================================================
+function askRepeatMenu(lastMenu) {
+
+  // 酸素カプセル
+  if (lastMenu.indexOf("酸素") !== -1) {
+    addBot("酸素カプセル（40分）ですね 🌸\n前回と同じで予約しますか？");
+    wait(function(){
+      showChoices([
+        { label:"はい、同じで",         val:"yes" },
+        { label:"施療も一緒に入れたい", val:"add_therapy" },
+        { label:"メニューを変える",     val:"change" },
+      ], function(v){
+        if (v==="yes") {
+          reserv.menu="酸素カプセル";
+          addBot("酸素カプセルで予約します 🌸");
+          wait(function(){ askDate(); }, 600);
+        } else if (v==="add_therapy") {
+          addBot("施療の時間はどれにしますか？");
+          wait(function(){ askTherapyDuration(true); }, 600);
+        } else { wait(function(){ askPurposeOnly(); }, 400); }
+      });
+    }, 600);
+
+  // 楽トレ
+  } else if (lastMenu.indexOf("楽トレ") !== -1) {
+    addBot("楽トレ（EMS）ですね 💪\n前回と同じで予約しますか？");
+    wait(function(){
+      showChoices([
+        { label:"はい、同じで",         val:"yes" },
+        { label:"施療も一緒に入れたい", val:"add_therapy" },
+        { label:"メニューを変える",     val:"change" },
+      ], function(v){
+        if (v==="yes") {
+          reserv.menu="楽トレ";
+          addBot("楽トレで予約します 🌸");
+          wait(function(){ askDate(); }, 600);
+        } else if (v==="add_therapy") {
+          addBot("施療の時間はどれにしますか？");
+          wait(function(){ askTherapyDuration(true); }, 600);
+        } else { wait(function(){ askPurposeOnly(); }, 400); }
+      });
+    }, 600);
+
+  // トレーニング
+  } else if (lastMenu.indexOf("トレーニング") !== -1 || lastMenu.indexOf("マンツーマン") !== -1) {
+    addBot("トレーニングですね 💪\nマンツーマンとセルフどちらにしますか？");
+    wait(function(){
+      showChoices([
+        { label:"マンツーマン（先生と一緒に）", val:"manto" },
+        { label:"セルフトレーニング（15分）",   val:"self" },
+      ], function(v){
+        if (v==="self") {
+          reserv.menu="セルフトレーニング";
+          addBot("セルフトレーニング（15分）で予約します 🌸");
+          wait(function(){ askDate(); }, 600);
+        } else {
+          addBot("マンツーマンの時間はどれにしますか？");
+          wait(function(){
+            showChoices([
+              { label:"15分", val:"マンツーマン15分" },
+              { label:"30分", val:"マンツーマン30分" },
+            ], function(menu){
+              reserv.menu = menu;
+              addBot(menu + "で予約します 🌸");
+              wait(function(){ askDate(); }, 600);
+            });
+          }, 600);
+        }
+      });
+    }, 600);
+
+  // 施療
+  } else {
+    addBot("施療ですね 🌸");
+    wait(function(){
+      askInsuranceType(function(insType){
+        reserv.insType = insType;
+        addBot("時間はどれにしますか？");
+        wait(function(){ askTherapyDuration(false); }, 600);
+      });
+    }, 400);
+  }
+}
+
+// 施療時間選択（リピーター向け）
+function askTherapyDuration(alreadyHasOxygen) {
+  var insType = reserv.insType || "";
+  var isMed = isMedReceipt(insType);
+  showChoices([
+    { label:"15分　" + (isMed ? "1,100円（割引適用）" : "2,200円"),  val:"施術15分" },
+    { label:"30分　" + (isMed ? "3,300円（割引適用）" : "4,400円"),  val:"施術30分" },
+    { label:"60分　" + (isMed ? "6,900円（割引適用）" : "8,000円"),  val:"施術60分" },
+    { label:"75分　" + (isMed ? "8,900円（割引適用）" : "10,000円"), val:"施術75分" },
+  ], function(menu){
+    reserv.menu = menu;
+    addBot(menu + "ですね 🌸");
+    if (alreadyHasOxygen) {
+      reserv.menu2 = "酸素カプセル";
+      addBot("酸素カプセルも続けて予約します 🌸");
+      wait(function(){ askDate(); }, 600);
+    } else {
+      wait(function(){
+        addBot("酸素カプセルや楽トレも一緒に使いますか？");
+        wait(function(){
+          showChoices([
+            { label:"酸素カプセルも使う（390円）", val:"oxygen" },
+            { label:"楽トレも使う（390円）",       val:"rakukan" },
+            { label:"施療だけでいいです",           val:"none" },
+          ], function(opt){
+            if (opt==="oxygen")       { reserv.menu2="酸素カプセル"; addBot("施療＋酸素カプセルで予約します 🌸"); }
+            else if (opt==="rakukan") { reserv.menu2="楽トレ";       addBot("施療＋楽トレで予約します 🌸"); }
+            else                      { addBot("施療のみで予約します 🌸"); }
+            wait(function(){ askDate(); }, 600);
+          });
+        }, 400);
+      }, 600);
+    }
+  });
 }
 
 // ============================================================
@@ -512,6 +669,49 @@ function askPurpose() {
       { label:"💎 定期的にメンテナンスできる院を探している", val:"subsinfo" },
       { label:"その他・まずは相談したい",                   val:"other" },
     ], onPurpose);
+  }, 600);
+}
+
+// 誰の予約かはそのままでメニューだけ聞き直す
+function askPurposeOnly() {
+  addBot("どんなメニューにしますか？");
+  wait(function(){
+    showChoices([
+      { label:"😣 痛み・不調を治したい",               val:"pain" },
+      { label:"💪 体を鍛えたい",                       val:"training" },
+      { label:"🌬 酸素カプセル",                       val:"oxygen_direct" },
+      { label:"⚡ 楽トレ（EMS）",                      val:"rakukan_direct" },
+    ], function(v){
+      if (v==="oxygen_direct") {
+        reserv.menu="酸素カプセル"; addBot("酸素カプセルで予約します 🌸");
+        wait(function(){ askDate(); }, 600);
+      } else if (v==="rakukan_direct") {
+        reserv.menu="楽トレ"; addBot("楽トレで予約します 🌸");
+        wait(function(){ askDate(); }, 600);
+      } else if (v==="training") {
+        addBot("マンツーマンとセルフどちらにしますか？");
+        wait(function(){
+          showChoices([
+            { label:"マンツーマン（先生と一緒に）", val:"manto" },
+            { label:"セルフトレーニング（15分）",   val:"self" },
+          ], function(tv){
+            if (tv==="self") {
+              reserv.menu="セルフトレーニング"; addBot("セルフトレーニング（15分）で予約します 🌸");
+              wait(function(){ askDate(); }, 600);
+            } else {
+              showChoices([
+                { label:"15分", val:"マンツーマン15分" },
+                { label:"30分", val:"マンツーマン30分" },
+              ], function(menu){ reserv.menu=menu; addBot(menu+"で予約します 🌸"); wait(function(){ askDate(); },600); });
+            }
+          });
+        }, 600);
+      } else {
+        // 痛み→施療時間選択
+        addBot("施療の時間はどれにしますか？");
+        wait(function(){ askTherapyDuration(false); }, 600);
+      }
+    });
   }, 600);
 }
 
@@ -856,11 +1056,8 @@ function onMotivation(val) {
   reserv.motivation = val;
   if (val==="quick") {
     wait(function(){
-      addBot("そうですよね、まず痛みを取るのが最優先。\n一番早い方法をご提案します 🌸");
-      wait(function(){
-        addBot("初診で先生にしっかり診てもらって、\n最短ルートで楽にしましょう。");
-        wait(function(){ suggestMenu("初診（保険）"); },600);
-      },600);
+      addBot("そうですよね、まず痛みを取るのが最優先。\nしっかり診てもらいましょう 🌸");
+      wait(function(){ showShinsatsuCard(); },600);
     },400);
 
   } else if (val==="fundamental") {
@@ -878,6 +1075,206 @@ function onMotivation(val) {
       wait(function(){ showLongtermPlan(); },800);
     },400);
   }
+}
+
+// ============================================================
+// 保険区分確認→料金目安表示
+// ============================================================
+// ============================================================
+// 名前確認後の保険区分確認→スタンプ案内
+// ============================================================
+function askInsuranceTypeForStamp() {
+  addBot("保険証の負担割合を教えてください 🌸\n（スタンプ割引のご案内に使います）");
+  wait(function(){
+    showChoices([
+      { label:"1割負担",                 val:"ippan1" },
+      { label:"2割負担",                 val:"ippan2" },
+      { label:"3割負担",                 val:"ippan3" },
+      { label:"医療費受給者証（400円）",  val:"med400" },
+      { label:"医療費受給者証（800円）",  val:"med800" },
+      { label:"医療費受給者証（その他）", val:"medother" },
+      { label:"わからない",               val:"unknown" },
+    ], function(insType){
+      reserv.insType = insType;
+      // スタンプ案内
+      var stampMsg = "";
+      if      (insType==="ippan1") stampMsg = "来院1回でスタンプ1個 → 1個100円引き\n10個で1,000円割引になります 🌸";
+      else if (insType==="ippan2") stampMsg = "来院1回でスタンプ1個 → 1個200円引き\n10個で2,000円割引になります 🌸";
+      else if (insType==="ippan3") stampMsg = "来院1回でスタンプ1個 → 1個300円引き\n10個で3,000円割引になります 🌸";
+      else if (insType==="med400") stampMsg = "来院1回でスタンプ1個 → 1個100円引き\n※窓口負担が100円以下の場合はスタンプ対象外です";
+      else if (insType==="med800") stampMsg = "来院1回でスタンプ1個 → 1個200円引き\n※窓口負担が100円以下の場合はスタンプ対象外です";
+      else if (insType==="medother") stampMsg = "スタンプの対象については窓口でご確認ください。\n※窓口負担が100円以下の場合はスタンプ対象外です";
+      else stampMsg = "スタンプの詳細は窓口でお声がけください 🌸";
+
+      if (stampMsg) {
+        addBot("💡 自費施療応援スタンプのご案内\n施療60分以上でスタンプ1個プレゼント！\n" + stampMsg + "\nスタンプはいつでも使えます（有効期限6ヶ月）");
+      }
+      wait(function(){
+        if (reserv.tel) { wait(function(){ showConfirmCard(); },400); }
+        else { showChoices([{label:"📱 電話番号を入力する",val:"tel"},{label:"💚 LINEでお友達登録する",val:"line"}],onContactSelect); }
+      }, stampMsg ? 1000 : 400);
+    });
+  }, 600);
+}
+
+function askInsuranceType(callback) {
+  addBot("保険の区分を教えてください。\n（料金の目安をお伝えします）");
+  wait(function(){
+    showChoices([
+      { label:"1〜3割負担",              val:"ippan" },
+      { label:"医療費受給者証（400円）",  val:"med400" },
+      { label:"医療費受給者証（800円）",  val:"med800" },
+      { label:"医療費受給者証（その他）", val:"medother" },
+      { label:"わからない",               val:"unknown" },
+    ], function(v){
+      if (v === "ippan") {
+        // 1〜3割のどれかを確認（スタンプ割引に使用）
+        addBot("何割負担ですか？");
+        wait(function(){
+          showChoices([
+            { label:"1割", val:"ippan1" },
+            { label:"2割", val:"ippan2" },
+            { label:"3割", val:"ippan3" },
+            { label:"わからない", val:"ippan_unknown" },
+          ], function(w){ callback(w); });
+        }, 600);
+      } else {
+        callback(v);
+      }
+    });
+  }, 600);
+}
+
+// 負担割合からスタンプ1個あたりの割引額
+function stampValue(insType) {
+  if (insType==="ippan1") return 100;
+  if (insType==="ippan2") return 200;
+  if (insType==="ippan3") return 300;
+  // 自由診療・医療費受給者証は負担割合に準じる（不明時は100円）
+  return 100;
+}
+
+function insuranceFeeLabel(insType, base) {
+  // 来院回数（今回の来院を加えた回数）
+  var visitCount = (reserv.visitCountThisMonth || 0) + 1;
+
+  if (base === "shinsatsu") {
+    // おすすめ初診（自費＋検査）は来院回数に関わらず固定
+    if (insType==="ippan1"||insType==="ippan2"||insType==="ippan3"||insType==="ippan_unknown")
+      return "3,000円（初診料1,500円＋検査1,500円）";
+    if (insType==="med400") return "1,900円（医療証400円＋検査1,500円）";
+    if (insType==="med800") return "2,300円（医療証800円＋検査1,500円）";
+    if (insType==="medother") return "1,600円（窓口100円＋検査1,500円）";
+    return "窓口でご確認ください";
+  }
+
+  if (base === "hoken") {
+    // 保険5分：来院回数で料金が変わる
+    var label = visitCount === 1 ? "初診" : visitCount === 2 ? "再診" : "3回目以降";
+
+    if (insType==="ippan1") {
+      var fee = visitCount === 1 ? "1,500円" : visitCount === 2 ? "800円" : "290円";
+      return fee + "（" + label + "・1割）目安";
+    }
+    if (insType==="ippan2") {
+      var fee = visitCount === 1 ? "1,500円" : visitCount === 2 ? "800円" : "370円";
+      return fee + "（" + label + "・2割）目安";
+    }
+    if (insType==="ippan3") {
+      var fee = visitCount === 1 ? "1,500円" : visitCount === 2 ? "800円" : "470円";
+      return fee + "（" + label + "・3割）目安";
+    }
+    if (insType==="ippan_unknown") {
+      return visitCount === 1 ? "1,500円（初診）目安" : visitCount === 2 ? "800円（再診）目安" : "290〜470円（3回目以降）目安";
+    }
+    if (insType==="med400") return "400円（医療証）目安";
+    if (insType==="med800") return "800円（医療証）目安";
+    if (insType==="medother") return "100円（医療証・窓口負担）目安";
+    return "窓口でご確認ください";
+  }
+
+  return "窓口でご確認ください";
+}
+
+function isMedReceipt(insType) {
+  return insType==="med400" || insType==="med800";
+}
+
+// ============================================================
+// おすすめ初診カード（保険区分確認付き）
+// ============================================================
+function showShinsatsuCard() {
+  var wrap=document.createElement("div"); wrap.className="cardwrap";
+  wrap.innerHTML='<div class="card gold"><h3>🌸 おすすめ初診</h3>'
+    +'<p>問診・検査　約20分<br>施療　約10分<br>合計　<strong>約30分</strong></p>'
+    +'<p style="font-size:12px;color:#92400e;background:#fffbeb;border-radius:8px;padding:8px;">'
+    +'💡 検査で原因を特定してから施療するので効果が出やすいです。</p>'
+    +'</div>';
+  document.getElementById("msgs").appendChild(wrap); scrollB();
+  wait(function(){
+    askInsuranceType(function(insType){
+      reserv.insType = insType;
+      var feeBase = insuranceFeeLabel(insType, "shinsatsu");
+      addBot("料金目安：" + feeBase + "\n\n施療時間を延長することもできます。");
+      wait(function(){
+        var isMed = isMedReceipt(insType);
+        var ext15 = isMed ? "＋15分延長　1,100円（割引適用）" : "＋15分延長　追加2,200円";
+        var ext30 = isMed ? "＋30分延長　3,300円（割引適用）" : "＋30分延長　追加4,400円";
+        showChoices([
+          { label:"このままでOK（約30分）", val:"basic" },
+          { label:ext15,                     val:"plus15" },
+          { label:ext30,                     val:"plus30" },
+        ], function(v){
+          if (v==="basic") {
+            reserv.menu="おすすめ初診";
+            addBot("おすすめ初診（約30分・" + feeBase + "）で予約します 🌸");
+            wait(function(){ askWho(); }, 600);
+          } else if (v==="plus15") {
+            reserv.menu="おすすめ初診"; reserv.menu2="施術15分";
+            var total = isMed
+              ? (insType==="med400" ? "合計2,000円（1,900円＋延長1,100円）" : "合計2,400円（2,300円＋延長1,100円）")
+              : "合計5,200円";
+            addBot("おすすめ初診＋15分延長（" + total + "）で予約します 🌸");
+            wait(function(){ askWho(); }, 600);
+          } else {
+            reserv.menu="おすすめ初診"; reserv.menu2="施術30分";
+            var total = isMed
+              ? (insType==="med400" ? "合計5,200円（1,900円＋延長3,300円）" : "合計5,600円（2,300円＋延長3,300円）")
+              : "合計7,400円";
+            addBot("おすすめ初診＋30分延長（" + total + "）で予約します 🌸");
+            wait(function(){ askWho(); }, 600);
+          }
+        });
+      }, 600);
+    });
+  }, 600);
+}
+
+// 初診（保険）の料金案内・応援ポイント案内
+function showHokenShinsatsuCard(callback) {
+  askInsuranceType(function(insType){
+    reserv.insType = insType;
+    var fee = insuranceFeeLabel(insType, "hoken");
+    addBot("初診（保険）の料金目安：" + fee + "\n施療時間：約20分");
+    wait(function(){
+      addBot("💡 自費施療応援ポイント実施中です 🌸\n詳しく聞きますか？");
+      wait(function(){
+        showChoices([
+          { label:"詳しく聞く",        val:"yes" },
+          { label:"そのまま予約に進む", val:"no" },
+        ], function(v){
+          if (v==="yes") {
+            wait(function(){
+              addBot("施療を受けるたびにスタンプ1個プレゼント！🌸\n\n【使い方】\n施療60分・75分のときにスタンプが使えます\n\n【割引額（1枚あたり）】\n・1割負担の方　100円引き\n・2割負担の方　200円引き\n・3割負担の方　300円引き\n\n最大24個まで貯められます（有効期限6ヶ月）\n\n※酸素カプセル・楽トレ・ジムトレ・コンディショニングのみの方、窓口負担0円の方はスタンプ対象外です");
+              wait(function(){ callback(insType); }, 1000);
+            }, 400);
+          } else {
+            callback(insType);
+          }
+        });
+      }, 600);
+    }, 600);
+  });
 }
 
 function showFundamentalPlan() {
@@ -910,14 +1307,25 @@ function showLongtermPlan() {
 }
 
 function onMotivationPlanOk() {
-  addBot("では予約に進みましょう 🌸\nまず先生に会いに来てください。");
-  wait(function(){ suggestMenu("初診（保険）"); },600);
+  addBot("では予約に進みましょう 🌸");
+  wait(function(){ showShinsatsuCard(); },600);
 }
 
 function suggestMenu(menu) {
   reserv.menu = menu;
-  addBot("「"+menu+"」でご予約します 🌸");
-  wait(function(){ askWho(); },600);
+  if (menu === "おすすめ初診") {
+    wait(function(){ showShinsatsuCard(); }, 400);
+  } else if (menu === "初診（保険）") {
+    wait(function(){
+      showHokenShinsatsuCard(function(){
+        addBot("初診（保険）で予約します 🌸");
+        wait(function(){ askWho(); }, 600);
+      });
+    }, 400);
+  } else {
+    addBot("「"+menu+"」でご予約します 🌸");
+    wait(function(){ askWho(); }, 600);
+  }
 }
 
 // ============================================================
@@ -938,15 +1346,25 @@ function onMenuSelect(val) {
           { label:"酸素カプセル（40分）390円",   val:"酸素カプセル" },
           { label:"マンツーマントレーニング",    val:"マンツーマントレーニング" },
         ], onMenuSelect);
-      },600);
-    },400);
+      }, 600);
+    }, 400);
+    return;
+  }
+  if (val === "初診（保険）") {
+    wait(function(){
+      showHokenShinsatsuCard(function(){
+        reserv.menu = "初診（保険）";
+        addBot("初診（保険）で予約します 🌸");
+        wait(function(){ askWho(); }, 600);
+      });
+    }, 400);
     return;
   }
   reserv.menu = val;
   wait(function(){
     addBot("「"+val+"」ですね 🌸");
-    wait(function(){ askWho(); },600);
-  },400);
+    wait(function(){ askWho(); }, 600);
+  }, 400);
 }
 
 // ============================================================
@@ -1350,8 +1768,13 @@ function sendText() {
     wait(function(){ addBot("フリガナを教えていただけますか？\n（例：ヤマダ タロウ）"); step="kana"; enableInput(); },400);
   } else if (step==="kana") {
     step=""; var kp=text.trim().split(/[\s　]+/); reserv.seiKana=kp[0]||text; reserv.meiKana=kp[1]||"";
-    if (reserv.tel) { wait(function(){ showConfirmCard(); },400); }
-    else { wait(function(){ showChoices([{label:"📱 電話番号を入力する",val:"tel"},{label:"💚 LINEでお友達登録する",val:"line"}],onContactSelect); },400); }
+    // 保険区分未確認の場合はここで確認
+    if (!reserv.insType) {
+      wait(function(){ askInsuranceTypeForStamp(); }, 400);
+    } else {
+      if (reserv.tel) { wait(function(){ showConfirmCard(); },400); }
+      else { wait(function(){ showChoices([{label:"📱 電話番号を入力する",val:"tel"},{label:"💚 LINEでお友達登録する",val:"line"}],onContactSelect); },400); }
+    }
   } else if (step==="tel") {
     step=""; reserv.tel=text.replace(/-/g,""); wait(function(){ askDate(); },400);
   } else if (step==="date") {

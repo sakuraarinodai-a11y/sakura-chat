@@ -200,7 +200,11 @@ function onReturnUser(val) {
   if (val === "yes") {
     wait(function(){ askWhoForReturn(); }, 400);
   } else {
-    // 別の方→電話番号で復元
+    // 別の方→patientをクリアしてから電話番号で検索
+    patient = { name:"", sei:"", mei:"", seiKana:"", meiKana:"", tel:"", karteId:"" };
+    family = [];
+    saveData("sakura_patient", patient);
+    saveData("sakura_family", family);
     wait(function(){
       addBot("お電話番号を入力してください。\n（ハイフンなし・例：0789845788）");
       step = "restore_tel"; enableInput();
@@ -208,7 +212,7 @@ function onReturnUser(val) {
   }
 }
 
-// 電話番号で復元→カルテ番号確認
+// 電話番号で復元→診察券No確認
 function restoreByTel(tel) {
   gasPost(
     { action:"searchPatient", kana:"", tel:tel },
@@ -218,6 +222,11 @@ function restoreByTel(tel) {
         window._restoreData = d;
         step = "restore_karteid"; enableInput();
       } else {
+        // 見つからない→patientクリアして初回フローへ
+        patient = { name:"", sei:"", mei:"", seiKana:"", meiKana:"", tel:"", karteId:"" };
+        family = [];
+        saveData("sakura_patient", patient);
+        saveData("sakura_family", family);
         addBot("情報が見つかりませんでした。\n新規のお客様として進めます 🌸");
         wait(function(){ askPurpose(); }, 800);
       }
@@ -268,6 +277,7 @@ function askWhoForReturn() {
         reserv.sei=patient.sei||""; reserv.mei=patient.mei||"";
         reserv.seiKana=patient.seiKana||""; reserv.meiKana=patient.meiKana||"";
         reserv.tel=patient.tel||"";
+        reserv.whoConfirmed = true;  // 誰の予約か確定済み
         wait(function(){ checkPastReservations(); }, 400);
       } else if (val === "new_family") {
         wait(function(){
@@ -280,6 +290,7 @@ function askWhoForReturn() {
         reserv.sei=f.sei||""; reserv.mei=f.mei||"";
         reserv.seiKana=f.seiKana||""; reserv.meiKana=f.meiKana||"";
         reserv.tel=f.tel||patient.tel||"";
+        reserv.whoConfirmed = true;  // 誰の予約か確定済み
         addBot(f.name + "さんのご予約ですね 🌸");
         wait(function(){ checkPastReservations(); }, 600);
       }
@@ -868,8 +879,18 @@ function onAccidentInsurance(val) {
 function onAccidentPain(val) {
   accidentData.pain = val;
   wait(function(){
-    addBot("ご連絡先のお電話番号を教えてください。\n（ハイフンなし・例：0789845788）");
-    step = "accident_tel"; enableInput();
+    // 保険会社の連絡状況で料金案内を分岐
+    if (accidentData.insurance === "yes") {
+      // 保険会社が決まっている→窓口0円
+      addBot("保険会社が決まっているので、窓口負担は基本的に0円です 🌸\n（保険会社との手続きはスタッフがサポートします）");
+    } else {
+      // 保険会社未定・不明→預り金案内
+      addBot("保険会社との連絡が取れていない場合、\n初回のみ預り金として10,000円をお預かりしています。\n\n交通事故として処理が確認でき次第、全額ご返金いたします 🌸");
+    }
+    wait(function(){
+      addBot("ご連絡先のお電話番号を教えてください。\n（ハイフンなし・例：0789845788）");
+      step = "accident_tel"; enableInput();
+    }, 800);
   }, 400);
 }
 
@@ -1261,25 +1282,41 @@ function showHokenShinsatsuCard(callback) {
     var isAccident = (reserv.purpose === "accident");
     var isFirstVisit = (visitCount === 1);
 
-    // 初診（1回目）・交通事故はポイント案内不要
+    // 初診（1回目）・交通事故はポイント案内不要→そのまま進むか来院時に決めるか
     if (isFirstVisit || isAccident) {
-      wait(function(){ callback(insType); }, 600);
+      wait(function(){
+        showChoices([
+          { label:"このまま予約に進む",  val:"go" },
+          { label:"来院時に決めたい",    val:"later" },
+        ], function(v){
+          if (v==="later") {
+            reserv.menu = "初診（保険）";
+            addBot("来院時にスタッフにお伝えください 🌸");
+          }
+          wait(function(){ callback(insType); }, 600);
+        });
+      }, 600);
       return;
     }
 
-    // 再診以降はポイント案内
+    // 再診以降はポイント案内＋来院時に決める
     wait(function(){
-      addBot("💡 自費施療応援ポイント実施中です 🌸\n詳しく聞きますか？");
+      addBot("💡 自費施療応援ポイント実施中です 🌸\nどうしますか？");
       wait(function(){
         showChoices([
-          { label:"詳しく聞く",        val:"yes" },
-          { label:"そのまま予約に進む", val:"no" },
+          { label:"詳しく聞く",        val:"detail" },
+          { label:"そのまま予約に進む", val:"go" },
+          { label:"来院時に決めたい",   val:"later" },
         ], function(v){
-          if (v==="yes") {
+          if (v==="detail") {
             wait(function(){
               addBot("施療を受けるたびにスタンプ1個プレゼント！🌸\n\n【使い方】\n施療60分・75分のときにスタンプが使えます\n\n【割引額（1枚あたり）】\n・1割負担の方　100円引き\n・2割負担の方　200円引き\n・3割負担の方　300円引き\n\n最大24個まで貯められます（有効期限6ヶ月）\n\n※酸素カプセル・楽トレ・ジムトレ・コンディショニングのみの方、窓口負担0円の方はスタンプ対象外です");
               wait(function(){ callback(insType); }, 1000);
             }, 400);
+          } else if (v==="later") {
+            reserv.menu = "初診（保険）";
+            addBot("来院時にスタッフにお伝えください 🌸");
+            wait(function(){ callback(insType); }, 600);
           } else {
             callback(insType);
           }
@@ -1383,6 +1420,19 @@ function onMenuSelect(val) {
 // 誰の予約か（初回用）
 // ============================================================
 function askWho() {
+  // リピーターフローで誰の予約か確定済みの場合はスキップ
+  if (reserv.whoConfirmed) {
+    wait(function(){ askDate(); }, 400);
+    return;
+  }
+  // patientに名前がない（新規・別人）場合はそのまま名前入力へ
+  if (!patient.name) {
+    wait(function(){
+      addBot("お名前を教えていただけますか？\n（例：山田 太郎）");
+      step="name"; enableInput();
+    }, 400);
+    return;
+  }
   var choices = [{ label:"ご自身", val:"self" }];
   family.forEach(function(f,i){ choices.push({ label:f.name+"さん", val:"family_"+i }); });
   choices.push({ label:"家族・友人（新規登録）", val:"new_family" });
@@ -1625,37 +1675,60 @@ function onReservationSuccess() {
 // 来院方法
 // ============================================================
 function askArrival() {
+  // 場所を知っている場合はスキップ
+  if (patient.knowsLocation) {
+    wait(function(){ showFinalConfirm(); }, 400);
+    return;
+  }
   addBot("ご来院の方法を教えてください。");
   wait(function(){
     showChoices([
-      { label:"車で来る",       val:"car" },
-      { label:"徒歩・電車で来る", val:"walk" },
-    ], function(){
+      { label:"車で来る",          val:"car" },
+      { label:"徒歩・電車で来る",  val:"walk" },
+    ], function(mode){
+      reserv.arrivalMode = mode;
       wait(function(){
         addBot("どちら方面からお越しですか？");
         wait(function(){
           showChoices([
             { label:"神戸方面から",   val:"kobe" },
             { label:"三田市方面から", val:"sanda" },
-          ], onDirection);
-        },600);
-      },400);
+            { label:"場所はわかります", val:"know" },
+          ], function(dir){ onDirection(dir, mode); });
+        }, 600);
+      }, 400);
     });
-  },600);
+  }, 600);
 }
 
-function onDirection(val) {
-  var url=val==="kobe"?YOUTUBE_KOBE:YOUTUBE_SANDA;
-  var label=val==="kobe"?"神戸方面":"三田市方面";
+function onDirection(val, mode) {
+  if (val === "know") {
+    // 場所わかる→次回以降スキップ
+    patient.knowsLocation = true;
+    saveData("sakura_patient", patient);
+    addBot("ありがとうございます 🌸\n次回からはこの質問を省略します。");
+    wait(function(){ showFinalConfirm(); }, 600);
+    return;
+  }
+
+  var label = val==="kobe" ? "神戸方面" : "三田市方面";
   wait(function(){
-    addBot(label+"からのルートをご案内します 🌸");
-    var wrap=document.createElement("div"); wrap.className="cardwrap";
-    var btn=document.createElement("a"); btn.className="ytbtn"; btn.href=url; btn.target="_blank";
-    btn.innerHTML="▶ YouTubeでルートを確認する";
-    wrap.appendChild(btn);
-    document.getElementById("msgs").appendChild(wrap); scrollB();
-    wait(function(){ showFinalConfirm(); },1000);
-  },400);
+    if (mode === "walk") {
+      // 徒歩・電車はYouTubeなし
+      addBot(label + "からのルートは、\n有野台バス停からすぐです 🌸\nご不明な点はお電話（" + TEL + "）までどうぞ。");
+      wait(function(){ showFinalConfirm(); }, 800);
+    } else {
+      // 車はYouTube案内
+      var url = val==="kobe" ? YOUTUBE_KOBE : YOUTUBE_SANDA;
+      addBot(label + "からのルートをご案内します 🌸");
+      var wrap = document.createElement("div"); wrap.className="cardwrap";
+      var btn = document.createElement("a"); btn.className="ytbtn"; btn.href=url; btn.target="_blank";
+      btn.innerHTML="▶ YouTubeでルートを確認する";
+      wrap.appendChild(btn);
+      document.getElementById("msgs").appendChild(wrap); scrollB();
+      wait(function(){ showFinalConfirm(); }, 1000);
+    }
+  }, 400);
 }
 
 // ============================================================

@@ -1300,7 +1300,7 @@ function handleFreeInput(text) {
     } else if (data.intent==="edit") {
       wait(function(){ showProfileEdit(); }, 600);
     } else {
-      // unknown・雑談 → 選択肢を出してフローを復帰
+      // unknown・雑談 → フリー入力を続けられるようにenableInputも呼ぶ
       wait(function(){
         showChoices([
           { label:"予約する",              val:"reserve"     },
@@ -1313,10 +1313,16 @@ function handleFreeInput(text) {
           else if (v==="editprofile") { wait(function(){ showProfileEdit(); }, 400); }
           else                        { reserv={}; step=""; wait(function(){ askPurpose(); }, 400); }
         });
+        // 選択肢と同時にフリー入力も受け付ける
+        wait(function(){ enableInput(); }, 400);
       }, 800);
     }
   })
-  .catch(function(){ removeTyping(); addBot("うまく聞き取れませんでした 🙏\nもう一度お選びください。","error"); wait(function(){ askPurpose(); }, 1000); });
+  .catch(function(){
+    removeTyping();
+    addBot("うまく聞き取れませんでした 🙏\nもう一度入力するか、下の選択肢からお選びください。","error");
+    wait(function(){ enableInput(); }, 400);
+  });
 }
 
 // ============================================================

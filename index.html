@@ -2212,6 +2212,121 @@ function onVisitAddress(address) {
 }
 
 // ============================================================
+// ============================================================
+// キャンセル・変更フロー
+// ============================================================
+function startCancelFlow() {
+  if (!patient.name || !patient.tel) {
+    addBot("予約の確認にはお電話番号が必要です。\n電話番号を入力してください。");
+    step = "cancel_tel"; enableInput();
+    return;
+  }
+  loadUpcomingReservations(patient);
+}
+
+function loadUpcomingReservations(pat) {
+  addBot("予約を確認しています 🌸");
+  gasPost(
+    { action:"getUpcomingReservations", sei:pat.sei||"", mei:pat.mei||"", tel:pat.tel||"" },
+    function(d){
+      if (!d.success || !d.reservations || d.reservations.length === 0) {
+        addBot("今後のご予約は見つかりませんでした。\nお電話（"+TEL+"）でご確認ください。");
+        return;
+      }
+      showCancelList(d.reservations);
+    },
+    function(){
+      addBot("予約の確認でエラーが発生しました 😢\nお電話（"+TEL+"）でご確認ください。","error");
+    }
+  );
+}
+
+function showCancelList(reservations) {
+  window._cancelReservations = reservations;
+  addBot("以下のご予約があります 🌸\nどちらを操作しますか？");
+  wait(function(){
+    var wrap = document.createElement("div"); wrap.className="cardwrap";
+    var html = '<div class="card"><h3>📅 今後のご予約</h3>';
+    reservations.forEach(function(r, i){
+      html += '<div class="row" style="flex-direction:column;align-items:flex-start;gap:4px;padding:8px 0;">'
+        + '<span style="font-weight:bold;">' + esc(r.date) + ' ' + esc(r.time) + '</span>'
+        + '<span>' + esc(r.menu) + '</span>'
+        + '<div style="display:flex;gap:6px;margin-top:4px;">'
+        + '<button class="cbtn" style="padding:6px 12px;font-size:13px;" onclick="onCancelSelect('+i+',\'cancel\')">キャンセル</button>'
+        + '<button class="cbtn gold" style="padding:6px 12px;font-size:13px;" onclick="onCancelSelect('+i+',\'change\')">変更</button>'
+        + '</div></div>';
+    });
+    html += '</div>';
+    wrap.innerHTML = html;
+    document.getElementById("msgs").appendChild(wrap); scrollB();
+  }, 400);
+}
+
+function onCancelSelect(idx, mode) {
+  document.querySelectorAll('.cardwrap .cbtn').forEach(function(b){ b.disabled=true; b.style.opacity="0.4"; });
+  var r = window._cancelReservations[idx];
+  window._cancelTarget = r;
+
+  if (mode === "cancel") {
+    addUser("キャンセル：" + r.date + " " + r.time + " " + r.menu);
+    wait(function(){
+      addBot(r.date + " " + r.time + "の「" + r.menu + "」を\nキャンセルしてよいですか？\n\n※予約時間の2時間前まで受け付けます。");
+      wait(function(){
+        showChoices([
+          { label:"はい、キャンセルします", val:"yes", red:true },
+          { label:"やめる",                 val:"no"  },
+        ], function(v){
+          if (v === "yes") { execCancel(r, null); }
+          else { addBot("キャンセルを中止しました 🌸"); }
+        });
+      }, 600);
+    }, 400);
+  } else {
+    addUser("変更：" + r.date + " " + r.time + " " + r.menu);
+    wait(function(){
+      addBot(r.date + " " + r.time + "の「" + r.menu + "」を\n別の日時に変更しますね 🌸\nまず元の予約をキャンセルして、新しい日時を選んでいただきます。");
+      wait(function(){
+        showChoices([
+          { label:"変更に進む", val:"yes" },
+          { label:"やめる",     val:"no"  },
+        ], function(v){
+          if (v === "yes") {
+            execCancel(r, function(){
+              reserv = { menu: r.menu, sei: patient.sei||"", mei: patient.mei||"",
+                         seiKana: patient.seiKana||"", meiKana: patient.meiKana||"",
+                         tel: patient.tel||"", whoConfirmed: true };
+              addBot("新しい日時を選んでください 🌸");
+              wait(function(){ askDate(); }, 600);
+            });
+          } else {
+            addBot("変更を中止しました 🌸");
+          }
+        });
+      }, 600);
+    }, 400);
+  }
+}
+
+function execCancel(r, callback) {
+  addBot("キャンセル処理をしています 🌸");
+  gasPost(
+    { action:"cancelReservation", numericId:r.numericId, eventId:r.eventId,
+      date:r.date, time:r.time, calendar:r.calendar },
+    function(d){
+      if (d.success) {
+        addBot("キャンセルが完了しました ✅\n" + r.date + " " + r.time + "の「" + r.menu + "」");
+        if (callback) { wait(callback, 800); }
+      } else {
+        addBot("⚠️ " + (d.message || "キャンセルに失敗しました。") + "\nお電話（"+TEL+"）でご確認ください。","error");
+      }
+    },
+    function(){
+      addBot("通信エラーでキャンセルできませんでした 😢\nお電話（"+TEL+"）にてご連絡ください。","error");
+    }
+  );
+}
+
+// ============================================================
 // 自由入力のAI判定
 // ============================================================
 function handleFreeInput(text) {
@@ -2278,17 +2393,7 @@ function handleFreeInput(text) {
         }, 800);
 
       } else if (data.intent==="cancel") {
-        // キャンセル・変更→電話案内（キャンセル機能実装後に拡張）
-        wait(function(){
-          var wrap=document.createElement("div"); wrap.className="cardwrap";
-          wrap.innerHTML='<div class="card">'
-            +'<h3>📞 キャンセル・変更のご連絡</h3>'
-            +'<p>お電話にてご連絡ください 🌸<br>予約時間の2時間前までお受けします。</p>'
-            +'<div class="btnrow">'
-            +'<a href="tel:'+TEL+'" class="btnok telbtn" style="text-decoration:none;">📞 '+TEL+'</a>'
-            +'</div></div>';
-          document.getElementById("msgs").appendChild(wrap); scrollB();
-        }, 600);
+        wait(function(){ startCancelFlow(); }, 600);
 
       } else if (data.intent==="check") {
         // 予約確認→電話案内（予約確認機能実装後に拡張）
@@ -2355,6 +2460,10 @@ function sendText() {
     reserv.date=text; wait(function(){ askTimeZone(text); },400);
   } else if (step==="companion_name") {
     step=""; onCompanionNameInput(text);
+  } else if (step==="cancel_tel") {
+    step="";
+    var cancelPat = Object.assign({}, patient, { tel: text.replace(/-/g,"") });
+    loadUpcomingReservations(cancelPat);
   } else if (step==="family_name") {
     step=""; var fp=text.trim().split(/[\s　]+/);
     window._tmpFamily={name:text.trim(),sei:fp[0]||text,mei:fp[1]||"",seiKana:"",meiKana:"",tel:""};

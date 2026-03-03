@@ -316,13 +316,17 @@ function painLabel(n) {
 function askPurpose() {
   addBot("ご予約・ご相談はお気軽にどうぞ 🌸");
   wait(function() {
-    showChoices([
+    var choices = [
       { label:"📅 予約する",                          val:"reserve" },
       { label:"📋 予約状況を確認したい",               val:"check" },
       { label:"💎 月1回施療会員になって10%OFFしたい", val:"subsinfo" },
       { label:"🚗 往診を希望したい",                   val:"visit" },
       { label:"💬 その他・相談したい",                 val:"other" },
-    ], onPurpose);
+    ];
+    if (patient.name) {
+      choices.splice(2, 0, { label:"✏️ 登録情報を変更したい", val:"editprofile" });
+    }
+    showChoices(choices, onPurpose);
   }, 600);
 }
 
@@ -341,6 +345,8 @@ function onPurpose(val) {
     }
   } else if (val === "check") {
     wait(function(){ loadUpcomingReservations(patient); }, 400);
+  } else if (val === "editprofile") {
+    wait(function(){ showProfileEdit(); }, 400);
   } else if (val === "visit") {
     wait(function() {
       addBot("往診をご希望なんですね 🌸\nご自宅の住所を教えていただけますか？");
@@ -354,6 +360,41 @@ function onPurpose(val) {
       step = "other_free"; enableInput();
     }, 400);
   }
+}
+
+// ============================================================
+// 登録情報の変更
+// ============================================================
+function showProfileEdit() {
+  addBot("現在の登録情報です 🌸\n"
+    + "お名前：" + (patient.sei||"") + " " + (patient.mei||"") + "\n"
+    + "フリガナ：" + (patient.seiKana||"") + " " + (patient.meiKana||"") + "\n"
+    + "電話番号：" + (patient.tel||"（未登録）"));
+  wait(function(){
+    showChoices([
+      { label:"✏️ 名前を変更する",          val:"edit_name" },
+      { label:"✏️ フリガナを変更する",      val:"edit_kana" },
+      { label:"✏️ 電話番号を変更する",      val:"edit_tel"  },
+      { label:"🗑️ 登録情報をリセット（別の方のデータ）", val:"reset" },
+      { label:"戻る",                        val:"back"      },
+    ], function(v){
+      if (v === "edit_name") {
+        wait(function(){ addBot("新しいお名前を入力してください。\n（例：山田 太郎）"); step="edit_name"; enableInput(); }, 400);
+      } else if (v === "edit_kana") {
+        wait(function(){ addBot("新しいフリガナを入力してください。\n（例：ヤマダ タロウ）"); step="edit_kana"; enableInput(); }, 400);
+      } else if (v === "edit_tel") {
+        wait(function(){ addBot("新しい電話番号を入力してください。\n（ハイフンなし・例：0789845788）"); step="edit_tel"; enableInput(); }, 400);
+      } else if (v === "reset") {
+        patient = {}; family = [];
+        saveData("sakura_patient", null);
+        saveData("sakura_family", null);
+        addBot("登録情報をリセットしました 🌸\nはじめまして！\nサクラ整骨院のAIアシスタントです。");
+        wait(function(){ askPurpose(); }, 800);
+      } else {
+        wait(function(){ askPurpose(); }, 400);
+      }
+    });
+  }, 600);
 }
 
 // ============================================================
@@ -1256,12 +1297,22 @@ function handleFreeInput(text) {
       wait(function(){ startCancelFlow(); }, 600);
     } else if (data.intent==="check") {
       wait(function(){ loadUpcomingReservations(patient); }, 600);
+    } else if (data.intent==="edit") {
+      wait(function(){ showProfileEdit(); }, 600);
     } else {
+      // unknown・雑談 → 選択肢を出してフローを復帰
       wait(function(){
         showChoices([
-          { label:"予約する", val:"reserve" },
-          { label:"最初に戻る", val:"restart" },
-        ], function(v){ reserv={}; step=""; wait(function(){ askPurpose(); }, 400); });
+          { label:"予約する",              val:"reserve"     },
+          { label:"予約状況を確認したい",   val:"check"       },
+          { label:"登録情報を変更したい",   val:"editprofile" },
+          { label:"最初に戻る",             val:"restart"     },
+        ], function(v){
+          if      (v==="reserve")     { reserv={}; step=""; wait(function(){ onPurpose("reserve");    }, 400); }
+          else if (v==="check")       { wait(function(){ loadUpcomingReservations(patient); }, 400); }
+          else if (v==="editprofile") { wait(function(){ showProfileEdit(); }, 400); }
+          else                        { reserv={}; step=""; wait(function(){ askPurpose(); }, 400); }
+        });
       }, 800);
     }
   })
@@ -1324,10 +1375,33 @@ function sendText() {
     step=""; surveyAnswers.symptom=text; wait(function(){ surveyPain1(); }, 400);
   } else if (step==="location_free") {
     step=""; reserv.location=text; wait(function(){ askMotivation(); }, 400);
+  } else if (step==="other_free") {
+    step=""; handleFreeInput(text);
   } else if (step==="cancel_tel") {
     step="";
     var cancelPat = Object.assign({}, patient, { tel: text.replace(/-/g,"") });
     loadUpcomingReservations(cancelPat);
+  } else if (step==="edit_name") {
+    step="";
+    var ep = text.trim().split(/[\s　]+/);
+    patient.sei = ep[0]||text; patient.mei = ep[1]||"";
+    patient.name = patient.sei + (patient.mei ? " "+patient.mei : "");
+    saveData("sakura_patient", patient);
+    addBot("お名前を「" + patient.name + "」に変更しました ✅");
+    wait(function(){ showProfileEdit(); }, 600);
+  } else if (step==="edit_kana") {
+    step="";
+    var ek = text.trim().split(/[\s　]+/);
+    patient.seiKana = ek[0]||text; patient.meiKana = ek[1]||"";
+    saveData("sakura_patient", patient);
+    addBot("フリガナを「" + patient.seiKana + " " + patient.meiKana + "」に変更しました ✅");
+    wait(function(){ showProfileEdit(); }, 600);
+  } else if (step==="edit_tel") {
+    step="";
+    patient.tel = text.replace(/-/g,"");
+    saveData("sakura_patient", patient);
+    addBot("電話番号を「" + patient.tel + "」に変更しました ✅");
+    wait(function(){ showProfileEdit(); }, 600);
   } else {
     handleFreeInput(text);
   }

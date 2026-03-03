@@ -1735,14 +1735,12 @@ function showChoices(choices, cb) {
     btn.onclick = function() {
       wrap.querySelectorAll("button").forEach(function(b){b.disabled=true;b.style.opacity="0.4";});
       addUser(c.label);
-      if (_stallTimer) clearTimeout(_stallTimer); // ボタン押下でリセット
       _stallCount = 0;
       setTimeout(function(){ cb(c.val, c.label); }, 400);
     };
     wrap.appendChild(btn);
   });
   document.getElementById("msgs").appendChild(wrap); scrollB();
-  resetStallTimer(); // 選択肢表示時にタイマー開始
 }
 
 function addBot(text, type) {
@@ -1759,17 +1757,19 @@ function showTyping() {
   var el=document.createElement("div"); el.className="bw"; el.id="typing";
   el.innerHTML='<div class="av">🌸</div><div class="typing-bub"><span></span><span></span><span></span></div>';
   document.getElementById("msgs").appendChild(el); scrollB();
+  resetStallTimer(); // GAS通信開始 → タイマー起動
 }
-function removeTyping() { var el=document.getElementById("typing"); if(el) el.remove(); }
+function removeTyping() {
+  var el=document.getElementById("typing"); if(el) el.remove();
+  if (_stallTimer) { clearTimeout(_stallTimer); _stallTimer = null; } // 通信完了 → タイマー解除
+}
 function enableInput() {
   var i=document.getElementById("inp"),b=document.getElementById("sbtn");
   i.disabled=false; b.disabled=false; i.placeholder="メッセージを入力..."; i.focus();
-  resetStallTimer();
 }
 function disableInput() {
   var i=document.getElementById("inp"),b=document.getElementById("sbtn");
   i.disabled=true; b.disabled=true; i.placeholder="上の選択肢からお選びください";
-  resetStallTimer();
 }
 
 // ============================================================
@@ -1809,12 +1809,9 @@ var _stallTimer = null;
 var _stallCount = 0;
 
 function resetStallTimer() {
+  // GAS通信中のみ呼ばれる。10秒以内にremoveTypingされなければ発動。
   if (_stallTimer) clearTimeout(_stallTimer);
-  // 入力が無効（選択肢待ち）の状態で30秒経過したら問いかける
-  var inp = document.getElementById("inp");
-  if (inp && inp.disabled) {
-    _stallTimer = setTimeout(function(){ onStall(); }, 10000);
-  }
+  _stallTimer = setTimeout(function(){ onStall(); }, 10000);
 }
 
 function onStall() {

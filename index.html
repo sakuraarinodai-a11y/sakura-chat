@@ -198,7 +198,16 @@ function onFirstOrReturn(val) {
 // ============================================================
 function onReturnUser(val) {
   if (val === "yes") {
-    wait(function(){ askWhoForReturn(); }, 400);
+    if (!patient.karteVerified) {
+      // 初回のみお客様番号で確認
+      wait(function(){
+        addBot("初回のみ、診察券のお客様番号で本人確認をさせてください 🌸\nお客様番号を入力してください。");
+        step = "karte_verify"; enableInput();
+      }, 400);
+    } else {
+      // 確認済みはスキップ
+      wait(function(){ askWhoForReturn(); }, 400);
+    }
   } else {
     // 別の方→patientをクリアしてから電話番号で検索
     patient = { name:"", sei:"", mei:"", seiKana:"", meiKana:"", tel:"", karteId:"" };
@@ -238,8 +247,48 @@ function restoreByTel(tel) {
   );
 }
 
-// 診察券No照合
-function verifyKarteId(karteid) {
+// お客様番号照合（初回のみ）
+function verifyKarteIdFromCache(karteid) {
+  // karteIdが保存済みの場合はローカルで照合
+  if (patient.karteId && String(patient.karteId) === String(karteid)) {
+    patient.karteVerified = true;
+    saveData("sakura_patient", patient);
+    addBot("確認できました 🌸\n" + patient.name + "様、おかえりなさい！");
+    wait(function(){ askWhoForReturn(); }, 600);
+    return;
+  }
+
+  // karteIdが未保存の場合はGASで検索して照合
+  showTyping();
+  gasPost(
+    { action:"searchPatient", kana: patient.seiKana + " " + patient.meiKana, tel: patient.tel },
+    function(d){
+      removeTyping();
+      if (d.success && d.found && String(d.customerNo) === String(karteid)) {
+        patient.karteId = d.customerNo;
+        patient.karteVerified = true;
+        patient.crmId = d.crmId || patient.crmId || "";
+        saveData("sakura_patient", patient);
+        addBot("確認できました 🌸\n" + patient.name + "様、おかえりなさい！");
+        wait(function(){ askWhoForReturn(); }, 600);
+      } else {
+        // 失敗→新規予約へ誘導
+        patient = { name:"", sei:"", mei:"", seiKana:"", meiKana:"", tel:"", karteId:"" };
+        family = [];
+        saveData("sakura_patient", patient);
+        saveData("sakura_family", family);
+        addBot("お客様番号が一致しませんでした。\n\n新規のお客様としてご予約をお取りします 🌸\n\n※次回からお名前入力を省略するには、来院時に窓口でお客様番号をご確認いただき、このチャットで一度ログインしてください。");
+        wait(function(){ askPurpose(); }, 1000);
+      }
+    },
+    function(){
+      removeTyping();
+      addBot("確認中にエラーが発生しました。\nお電話（" + TEL + "）までお問い合わせください。", "error");
+    }
+  );
+}
+
+// 診察券No照合（電話番号からの復元フロー用）function verifyKarteId(karteid) {
   var d = window._restoreData;
   if (!d) { wait(function(){ askPurpose(); }, 400); return; }
 
@@ -251,6 +300,7 @@ function verifyKarteId(karteid) {
     patient.meiKana  = d.meiKana  || "";
     patient.tel      = d.tel      || "";
     patient.karteId  = d.customerNo || "";
+    patient.karteVerified = true;
     saveData("sakura_patient", patient);
     addBot("確認できました 🌸\n" + patient.name + "様、おかえりなさい！");
     wait(function(){ askWhoForReturn(); }, 800);
@@ -346,20 +396,28 @@ function checkPastReservations() {
         }, 600);
 
       } else {
-        // 1ヶ月以内→前回と同じ症状か確認
-        addBot("前回は「" + d.lastMenu + "」でご予約でした。\n前回と同じ症状ですか？");
-        wait(function(){
-          showChoices([
-            { label:"はい、同じです",       val:"same_symptom" },
-            { label:"いいえ、違う症状です", val:"diff_symptom" },
-          ], function(v){
-            if (v === "diff_symptom") {
-              wait(function(){ askPurposeOnly(); }, 400);
-            } else {
-              wait(function(){ askRepeatMenu(d.lastMenu); }, 400);
-            }
-          });
-        }, 600);
+        // 1ヶ月以内
+        var isAccidentMenu = d.lastMenu && d.lastMenu.indexOf("交通事故") !== -1;
+
+        if (isAccidentMenu) {
+          // 交通事故は同じ症状か聞かずに直接メニュー選択へ
+          wait(function(){ askRepeatMenu(d.lastMenu); }, 400);
+        } else {
+          // 通常：前回と同じ症状か確認
+          addBot("前回は「" + d.lastMenu + "」でご予約でした。\n前回と同じ症状ですか？");
+          wait(function(){
+            showChoices([
+              { label:"はい、同じです",       val:"same_symptom" },
+              { label:"いいえ、違う症状です", val:"diff_symptom" },
+            ], function(v){
+              if (v === "diff_symptom") {
+                wait(function(){ askPurposeOnly(); }, 400);
+              } else {
+                wait(function(){ askRepeatMenu(d.lastMenu); }, 400);
+              }
+            });
+          }, 600);
+        }
       }
     },
     function(){
@@ -378,6 +436,32 @@ function askPrevFeedbackOrPurpose() {
 // リピーター：前回メニュー別フロー
 // ============================================================
 function askRepeatMenu(lastMenu) {
+
+  // 交通事故治療・交通事故無料相談
+  if (lastMenu.indexOf("交通事故") !== -1) {
+    addBot("交通事故治療ですね 🌸\n今日はどちらにしますか？");
+    wait(function(){
+      showChoices([
+        { label:"5分　（短時間通院）", val:"short" },
+        { label:"30分",               val:"long"  },
+      ], function(v){
+        if (v === "short") {
+          // 5分は「施術5分」メニュー、メモに交通事故を付記
+          reserv.menu = "施術5分";
+          reserv.accidentDuration = "5分";
+          reserv.symptom = (reserv.symptom || "") + "【交通事故治療】";
+          addBot("施術5分（交通事故・短時間通院）で予約します 🌸\n窓口負担は0円です。");
+        } else {
+          // 30分は「交通事故治療」メニュー
+          reserv.menu = "交通事故治療";
+          reserv.accidentDuration = "30分";
+          addBot("交通事故治療（30分）で予約します 🌸\n窓口負担は0円です。");
+        }
+        wait(function(){ askDate(); }, 600);
+      });
+    }, 600);
+    return;
+  }
 
   // 酸素カプセル
   if (lastMenu.indexOf("酸素") !== -1) {
@@ -1485,13 +1569,29 @@ function onDateSelect(val) {
     return;
   }
   reserv.date = val;
-  wait(function(){ loadSlots(val); },400);
+  wait(function(){ askTimeZone(val); }, 400);
+}
+
+// 希望時間帯を先に聞く
+function askTimeZone(date) {
+  addBot("ご希望の時間帯はいつ頃ですか？");
+  wait(function(){
+    showChoices([
+      { label:"🌅 午前中（8:00〜12:00）",   val:"morning" },
+      { label:"☀️ 昼頃（12:00〜15:00）",    val:"noon" },
+      { label:"🌇 夕方以降（15:00〜）",      val:"evening" },
+      { label:"🕐 時間帯を指定しない",        val:"any" },
+    ], function(zone){
+      reserv.preferredZone = zone;
+      wait(function(){ loadSlots(date, zone); }, 400);
+    });
+  }, 600);
 }
 
 // ============================================================
 // 空き時間
 // ============================================================
-function loadSlots(date) {
+function loadSlots(date, zone) {
   // 酸素カプセルは40分プランで取得
   var menuForSlot = reserv.menu === "酸素カプセル" ? "酸素カプセル40分" : reserv.menu;
   gasPost(
@@ -1502,10 +1602,37 @@ function loadSlots(date) {
         wait(function(){ askDate(); },800);
         return;
       }
+
+      // 時間帯フィルター
+      var allSlots = data.slots;
+      var filtered = allSlots.filter(function(s){
+        var h = parseInt(s.split(":")[0]);
+        if (zone === "morning") return h >= 8  && h < 12;
+        if (zone === "noon")    return h >= 12 && h < 15;
+        if (zone === "evening") return h >= 15;
+        return true; // any
+      });
+
+      // フィルター後に空なら他の時間帯を案内
+      if (filtered.length === 0) {
+        var zoneLabel = zone==="morning"?"午前中":zone==="noon"?"昼頃":"夕方以降";
+        addBot(zoneLabel + "の空きがありませんでした 😢\n他の時間帯を確認しますか？");
+        wait(function(){
+          showChoices([
+            { label:"他の時間帯を見る", val:"other_zone" },
+            { label:"別の日にする",     val:"other_day"  },
+          ], function(v){
+            if (v==="other_zone") { wait(function(){ loadSlots(date, "any"); }, 400); }
+            else { wait(function(){ askDate(); }, 400); }
+          });
+        }, 600);
+        return;
+      }
+
       addBot("空きがございます 🌸\nご希望の時間をお選びください。");
       wait(function(){
         var wrap=document.createElement("div"); wrap.className="slots";
-        data.slots.slice(0,12).forEach(function(s){
+        filtered.slice(0,12).forEach(function(s){
           var btn=document.createElement("button"); btn.className="slotbtn"; btn.textContent=s;
           btn.onclick=function(){
             wrap.querySelectorAll("button").forEach(function(b){ b.disabled=true; b.style.opacity="0.4"; });
@@ -1513,6 +1640,25 @@ function loadSlots(date) {
           };
           wrap.appendChild(btn);
         });
+        // 同じ時間帯にまだ枠がある場合「もっと見る」ボタン
+        if (filtered.length > 12) {
+          var moreBtn = document.createElement("button");
+          moreBtn.className="slotbtn"; moreBtn.textContent="もっと見る…";
+          moreBtn.style.borderStyle="dashed";
+          moreBtn.onclick=function(){
+            moreBtn.remove();
+            filtered.slice(12).forEach(function(s){
+              var btn=document.createElement("button"); btn.className="slotbtn"; btn.textContent=s;
+              btn.onclick=function(){
+                wrap.querySelectorAll("button").forEach(function(b){ b.disabled=true; b.style.opacity="0.4"; });
+                onTimeSelect(s);
+              };
+              wrap.insertBefore(btn, moreBtn);
+            });
+            scrollB();
+          };
+          wrap.appendChild(moreBtn);
+        }
         document.getElementById("msgs").appendChild(wrap); scrollB();
       },600);
     },
@@ -1573,19 +1719,238 @@ function askSaveConsent(onYes, onNo) {
 }
 
 // ============================================================
-// 予約確認カード
+// 予約確認カード（同行者確認を経由）
 // ============================================================
 function showConfirmCard() {
+  // 同行者を先に確認してから確認カードへ
+  askCompanions(function(){ showConfirmCardFinal(); });
+}
+
+// ============================================================
+// 同行者確認
+// ============================================================
+function askCompanions(callback) {
+  addBot("一緒にご来院される方はいますか？");
+  wait(function(){
+    showChoices([
+      { label:"いない（自分だけ）", val:"none" },
+      { label:"一緒に来る方がいる", val:"yes"  },
+    ], function(v){
+      if (v === "none") {
+        reserv.companions = [];
+        wait(function(){ callback(); }, 400);
+        return;
+      }
+
+      // 登録済みfamilyがあればチェック形式で選択
+      if (family.length > 0) {
+        showCompanionCheckbox(callback);
+      } else {
+        // 登録なし→新規追加へ
+        reserv.companions = [];
+        wait(function(){ addCompanion(callback); }, 400);
+      }
+    });
+  }, 600);
+}
+
+// チェックボックス形式で同行者選択
+function showCompanionCheckbox(callback) {
+  reserv.companions = reserv.companions || [];
+  var checked = {};
+
+  var wrap = document.createElement("div");
+  wrap.className = "cardwrap";
+  var html = '<div class="card"><h3>👥 同行者を選んでください</h3>';
+  family.forEach(function(f, i){
+    html += '<label style="display:block;padding:6px 0;cursor:pointer;">'
+      + '<input type="checkbox" value="' + i + '" style="margin-right:8px;">'
+      + f.name + 'さん（' + (f.menu || "メニュー未設定") + '）'
+      + '</label>';
+  });
+  html += '<div class="btnrow" style="margin-top:12px;">'
+    + '<button class="btnok" onclick="onCompanionCheckDone(' + "'" + 'existing' + "'" + ')">決定する</button>'
+    + '<button class="btnng" onclick="onCompanionCheckDone(' + "'" + 'add' + "'" + ')">＋新しい方を追加</button>'
+    + '</div></div>';
+  wrap.innerHTML = html;
+  document.getElementById("msgs").appendChild(wrap);
+  scrollB();
+  window._companionCallback = callback;
+}
+
+function onCompanionCheckDone(mode) {
+  // チェックされた人を収集
+  var checkboxes = document.querySelectorAll('.cardwrap input[type="checkbox"]:checked');
+  reserv.companions = [];
+  checkboxes.forEach(function(cb){
+    var idx = parseInt(cb.value);
+    var f = family[idx];
+    if (f) reserv.companions.push(Object.assign({}, f));
+  });
+
+  if (mode === "add") {
+    wait(function(){ addCompanion(window._companionCallback); }, 400);
+  } else {
+    // メニューが未設定の同行者がいれば設定
+    var needMenu = reserv.companions.filter(function(c){ return !c.menu; });
+    if (needMenu.length > 0) {
+      wait(function(){ askCompanionMenu(0, window._companionCallback); }, 400);
+    } else {
+      wait(function(){ window._companionCallback(); }, 400);
+    }
+  }
+}
+
+// 同行者を新規追加
+function addCompanion(callback) {
+  addBot("同行者のお名前を教えてください。\n（例：山田 花子）");
+  step = "companion_name"; enableInput();
+  window._companionCallback = callback;
+}
+
+function onCompanionNameInput(name) {
+  var parts = name.trim().split(/\s+/);
+  var newComp = { name: name.trim(), sei: parts[0]||name.trim(), mei: parts[1]||"", seiKana:"", meiKana:"", tel:"" };
+
+  // familyに同じ名前の登録があるか確認
+  var existIdx = -1;
+  family.forEach(function(f, i){
+    if (f.name === newComp.name || f.sei === newComp.sei) existIdx = i;
+  });
+
+  if (existIdx >= 0) {
+    var existing = family[existIdx];
+    addBot(existing.name + "さんは登録済みです。\nこの方ですか？");
+    wait(function(){
+      showChoices([
+        { label:"はい、この方です", val:"yes" },
+        { label:"別の方です",       val:"no"  },
+      ], function(v){
+        if (v === "yes") {
+          // 既存データを使いつつ上書き対象としてセット
+          window._pendingCompanion = Object.assign({}, existing, { _familyIdx: existIdx });
+          wait(function(){ askCompanionMenuForNew(window._companionCallback); }, 400);
+        } else {
+          // 別の方→そのまま新規として登録
+          window._pendingCompanion = newComp;
+          wait(function(){ askCompanionMenuForNew(window._companionCallback); }, 400);
+        }
+      });
+    }, 600);
+  } else {
+    window._pendingCompanion = newComp;
+    wait(function(){ askCompanionMenuForNew(window._companionCallback); }, 400);
+  }
+}
+
+function askCompanionMenuForNew(callback) {
+  var isAccident = reserv.accidentDuration || (reserv.menu === "交通事故治療") || (reserv.menu === "交通事故無料相談");
+  if (isAccident) {
+    // 交通事故は固定
+    window._pendingCompanion.menu = reserv.menu;
+    window._pendingCompanion.accidentDuration = reserv.accidentDuration;
+    finishAddCompanion(callback);
+    return;
+  }
+  addBot(window._pendingCompanion.name + "さんのメニューは？");
+  wait(function(){
+    showChoices([
+      { label:"代表者と同じ（" + reserv.menu + "）", val:"same"    },
+      { label:"初診（保険）",                         val:"初診（保険）" },
+      { label:"施術15分",                             val:"施術15分" },
+      { label:"施術30分",                             val:"施術30分" },
+      { label:"施術60分",                             val:"施術60分" },
+    ], function(v){
+      window._pendingCompanion.menu = (v === "same") ? reserv.menu : v;
+      finishAddCompanion(callback);
+    });
+  }, 600);
+}
+
+function finishAddCompanion(callback) {
+  var comp = window._pendingCompanion;
+  // familyに保存（既存なら上書き・新規なら追加）
+  if (typeof comp._familyIdx === "number" && comp._familyIdx >= 0) {
+    family[comp._familyIdx] = Object.assign(family[comp._familyIdx], comp);
+  } else {
+    var existIdx = family.findIndex(function(f){ return f.name === comp.name; });
+    if (existIdx >= 0) { family[existIdx] = Object.assign(family[existIdx], comp); }
+    else { family.push(comp); }
+  }
+  saveData("sakura_family", family);
+
+  if (!reserv.companions) reserv.companions = [];
+  reserv.companions.push(Object.assign({}, comp));
+
+  addBot(comp.name + "さんを追加しました 🌸");
+  wait(function(){
+    showChoices([
+      { label:"他にも追加する", val:"more" },
+      { label:"これで確定する", val:"done" },
+    ], function(v){
+      if (v === "more") {
+        wait(function(){ addCompanion(callback); }, 400);
+      } else {
+        wait(function(){ callback(); }, 400);
+      }
+    });
+  }, 600);
+}
+
+// 既存同行者でメニュー未設定の場合
+function askCompanionMenu(idx, callback) {
+  if (idx >= reserv.companions.length) {
+    wait(function(){ callback(); }, 400);
+    return;
+  }
+  var comp = reserv.companions[idx];
+  if (comp.menu) { askCompanionMenu(idx+1, callback); return; }
+
+  addBot(comp.name + "さんのメニューは？");
+  wait(function(){
+    showChoices([
+      { label:"代表者と同じ（" + reserv.menu + "）", val:"same"    },
+      { label:"初診（保険）",                         val:"初診（保険）" },
+      { label:"施術15分",                             val:"施術15分" },
+      { label:"施術30分",                             val:"施術30分" },
+      { label:"施術60分",                             val:"施術60分" },
+    ], function(v){
+      reserv.companions[idx].menu = (v === "same") ? reserv.menu : v;
+      askCompanionMenu(idx+1, callback);
+    });
+  }, 600);
+}
+
+// ============================================================
+// 予約確認カード（実体）
+// ============================================================
+function showConfirmCardFinal() {
   addBot("ご予約内容を確認してください 🌸");
   wait(function(){
     var name=(reserv.sei||"")+" "+(reserv.mei||"");
     var kana=(reserv.seiKana||"")+" "+(reserv.meiKana||"");
+    var menuLabel = reserv.menu || "";
+    if (reserv.accidentDuration) {
+      menuLabel = reserv.menu === "施術5分"
+        ? "施術5分（交通事故・短時間通院）"
+        : "交通事故治療（" + reserv.accidentDuration + "）";
+    }
+
+    var companionRows = "";
+    if (reserv.companions && reserv.companions.length > 0) {
+      companionRows += '<tr><td colspan="2" style="padding:6px 12px;font-weight:bold;color:#c084a0;">👥 同行者</td></tr>';
+      reserv.companions.forEach(function(c){
+        companionRows += row(c.name + "さん", c.menu || reserv.menu);
+      });
+    }
+
     var wrap=document.createElement("div"); wrap.className="cardwrap";
     wrap.innerHTML='<div class="card"><h3>📋 予約内容の確認</h3>'
       +row("お名前",name+"（"+kana+"）")
       +row("連絡先",reserv.tel||"")
-      +row("メニュー",reserv.menu||"")
+      +row("メニュー",menuLabel)
       +row("日時",(reserv.date||"")+" "+(reserv.time||""))
+      +companionRows
       +'<div class="btnrow">'
       +'<button class="btnok" id="confirmBtn" onclick="confirmReservation()">この内容で予約する</button>'
       +'<button class="btnng" onclick="correctReservation()">訂正する</button>'
@@ -1632,6 +1997,11 @@ function confirmReservation() {
   var sendReserv = Object.assign({}, reserv);
   if (sendReserv.menu === "酸素カプセル") sendReserv.menu = "酸素カプセル40分";
 
+  // 交通事故治療は施術時間をメモに付加
+  if (sendReserv.menu === "交通事故治療" && sendReserv.accidentDuration) {
+    sendReserv.symptom = (sendReserv.symptom || "") + "【施術時間】" + sendReserv.accidentDuration;
+  }
+
   gasPost(
     Object.assign({ action:"makeReservation" }, sendReserv),
     function(data){
@@ -1645,14 +2015,14 @@ function confirmReservation() {
               patient.name=reserv.sei+" "+reserv.mei; patient.tel=reserv.tel;
               saveData("sakura_patient", patient);
               addBot("保存しました 🌸");
-              wait(function(){ onReservationSuccess(); },600);
+              wait(function(){ registerCompanions(0, onReservationSuccess); },600);
             },
             function(){
-              wait(function(){ onReservationSuccess(); },400);
+              wait(function(){ registerCompanions(0, onReservationSuccess); },400);
             }
           );
         } else {
-          onReservationSuccess();
+          registerCompanions(0, onReservationSuccess);
         }
       } else {
         addBot("⚠️ 予約登録に問題が発生しました。\nお電話（"+TEL+"）でご確認ください。","error");
@@ -1666,6 +2036,39 @@ function confirmReservation() {
   );
 }
 
+// 同行者を順番にGAS登録
+function registerCompanions(idx, callback) {
+  var companions = reserv.companions || [];
+  if (idx >= companions.length) {
+    callback();
+    return;
+  }
+  var comp = companions[idx];
+  var compMenu = comp.menu || reserv.menu;
+  if (compMenu === "酸素カプセル") compMenu = "酸素カプセル40分";
+
+  var compData = {
+    action:      "makeReservation",
+    sei:         comp.sei || comp.name,
+    mei:         comp.mei || "",
+    seiKana:     comp.seiKana || "",
+    meiKana:     comp.meiKana || "",
+    tel:         comp.tel || reserv.tel,
+    crmId:       comp.crmId || "",
+    customerNo:  comp.customerNo || "",
+    menu:        compMenu,
+    date:        reserv.date,
+    time:        reserv.time,
+    symptom:     comp.accidentDuration ? "【交通事故治療】【施術時間】" + comp.accidentDuration : "",
+    motivationText: reserv.motivationText || "",
+  };
+
+  gasPost(compData,
+    function(){ registerCompanions(idx+1, callback); },
+    function(){ registerCompanions(idx+1, callback); }
+  );
+}
+
 function onReservationSuccess() {
   addBot("ご予約の手続きが完了しました 🌸\nご確認まで少々お待ちください。");
   wait(function(){ askArrival(); },1000);
@@ -1675,8 +2078,8 @@ function onReservationSuccess() {
 // 来院方法
 // ============================================================
 function askArrival() {
-  // 場所を知っている場合はスキップ
-  if (patient.knowsLocation) {
+  // 来院経験者（キャッシュあり）または場所を知っている場合はスキップ
+  if (patient.knowsLocation || patient.karteVerified || patient.karteId) {
     wait(function(){ showFinalConfirm(); }, 400);
     return;
   }
@@ -1691,8 +2094,8 @@ function askArrival() {
         addBot("どちら方面からお越しですか？");
         wait(function(){
           showChoices([
-            { label:"神戸方面から",   val:"kobe" },
-            { label:"三田市方面から", val:"sanda" },
+            { label:"神戸方面から",     val:"kobe" },
+            { label:"三田市方面から",   val:"sanda" },
             { label:"場所はわかります", val:"know" },
           ], function(dir){ onDirection(dir, mode); });
         }, 600);
@@ -1738,9 +2141,15 @@ function showFinalConfirm() {
   addBot("ご予約が確定しました ✅");
   wait(function(){
     var wrap=document.createElement("div"); wrap.className="cardwrap";
+    var menuLabel2 = reserv.menu || "";
+    if (reserv.accidentDuration) {
+      menuLabel2 = reserv.menu === "施術5分"
+        ? "施術5分（交通事故・短時間通院）"
+        : "交通事故治療（" + reserv.accidentDuration + "）";
+    }
     wrap.innerHTML='<div class="card"><h3>✅ 予約確定</h3>'
       +row("お名前",(reserv.sei||"")+" "+(reserv.mei||""))
-      +row("メニュー",reserv.menu||"")
+      +row("メニュー",menuLabel2)
       +row("日時",(reserv.date||"")+" "+(reserv.time||""))
       +row("ご連絡先",reserv.tel||"")
       +'</div>';
@@ -1810,20 +2219,93 @@ function handleFreeInput(text) {
     { action:"judgeIntent", text:text, reserv:reserv },
     function(data){
       addBot(data.reply);
-      if (data.intent==="restart")  { reserv={}; step=""; wait(function(){ askPurpose(); },800); }
-      else if (data.intent==="correct") { wait(function(){ correctReservation(); },800); }
-      else if (data.intent==="symptom") { reserv.location=data.location||text; wait(function(){ askMotivation(); },800); }
-      else if (data.intent==="menu")    { wait(function(){ onMenuSelect(data.menu||"consult"); },800); }
-      else {
+      if (data.intent==="restart") {
+        reserv={}; step=""; wait(function(){ askPurpose(); },800);
+
+      } else if (data.intent==="correct") {
+        wait(function(){ correctReservation(); },800);
+
+      } else if (data.intent==="symptom") {
+        // 入力テキスト全文を症状メモとして保存
+        reserv.symptom = (reserv.symptom ? reserv.symptom + "\n" : "") + text;
+        reserv.location = data.location || text;
+        wait(function(){ askMotivation(); },800);
+
+      } else if (data.intent==="menu") {
+        wait(function(){ onMenuSelect(data.menu||"consult"); },800);
+
+      } else if (data.intent==="reserve") {
+        reserv={}; step=""; wait(function(){ askPurpose(); },800);
+
+      } else if (data.intent==="access") {
+        // 来院方法・アクセス案内
         wait(function(){
           showChoices([
-            { label:"最初からやり直す", val:"restart" },
-            { label:"予約に進む",       val:"reserve" },
-          ], function(v){
-            reserv={}; step="";
-            wait(function(){ askPurpose(); },400);
+            { label:"🚗 車で来る",         val:"car"  },
+            { label:"🚶 徒歩・電車で来る", val:"walk" },
+          ], function(mode){
+            wait(function(){
+              showChoices([
+                { label:"神戸方面から",   val:"kobe"  },
+                { label:"三田市方面から", val:"sanda" },
+              ], function(dir){
+                onDirection(dir, mode);
+              });
+            }, 600);
           });
-        },600);
+        }, 600);
+
+      } else if (data.intent==="hours") {
+        // 営業時間（AIのreplyで答えているのでそのまま）
+        wait(function(){
+          showChoices([
+            { label:"予約に進む",       val:"reserve" },
+            { label:"最初に戻る",       val:"restart" },
+          ], function(v){
+            reserv={}; step=""; wait(function(){ askPurpose(); },400);
+          });
+        }, 800);
+
+      } else if (data.intent==="price") {
+        // 料金（AIのreplyで答えているのでそのまま）
+        wait(function(){
+          showChoices([
+            { label:"予約に進む", val:"reserve" },
+            { label:"最初に戻る", val:"restart" },
+          ], function(v){
+            reserv={}; step=""; wait(function(){ askPurpose(); },400);
+          });
+        }, 800);
+
+      } else if (data.intent==="cancel") {
+        // キャンセル・変更→電話案内（キャンセル機能実装後に拡張）
+        wait(function(){
+          var wrap=document.createElement("div"); wrap.className="cardwrap";
+          wrap.innerHTML='<div class="card">'
+            +'<h3>📞 キャンセル・変更のご連絡</h3>'
+            +'<p>お電話にてご連絡ください 🌸<br>予約時間の2時間前までお受けします。</p>'
+            +'<div class="btnrow">'
+            +'<a href="tel:'+TEL+'" class="btnok telbtn" style="text-decoration:none;">📞 '+TEL+'</a>'
+            +'</div></div>';
+          document.getElementById("msgs").appendChild(wrap); scrollB();
+        }, 600);
+
+      } else if (data.intent==="check") {
+        // 予約確認→電話案内（予約確認機能実装後に拡張）
+        wait(function(){
+          addBot("ご予約の確認はお電話（"+TEL+"）にてご案内しております 🌸\n近日中にチャットでも確認できるようにいたします。");
+        }, 600);
+
+      } else {
+        // unknown・雑談→選択肢を出す
+        wait(function(){
+          showChoices([
+            { label:"予約する",     val:"reserve" },
+            { label:"最初に戻る",   val:"restart" },
+          ], function(v){
+            reserv={}; step=""; wait(function(){ askPurpose(); },400);
+          });
+        }, 800);
       }
     },
     function(){
@@ -1844,6 +2326,8 @@ function sendText() {
 
   if (step==="restore_tel") {
     step=""; restoreByTel(text.replace(/-/g,""));
+  } else if (step==="karte_verify") {
+    step=""; verifyKarteIdFromCache(text.trim());
   } else if (step==="restore_karteid") {
     step=""; verifyKarteId(text);
   } else if (step==="accident_tel") {
@@ -1868,7 +2352,9 @@ function sendText() {
       addBot("日付の形式が正しくありません。\n（例：2026-03-15）の形式で入力してください。","error");
       step="date"; enableInput(); return;
     }
-    reserv.date=text; wait(function(){ loadSlots(text); },400);
+    reserv.date=text; wait(function(){ askTimeZone(text); },400);
+  } else if (step==="companion_name") {
+    step=""; onCompanionNameInput(text);
   } else if (step==="family_name") {
     step=""; var fp=text.trim().split(/[\s　]+/);
     window._tmpFamily={name:text.trim(),sei:fp[0]||text,mei:fp[1]||"",seiKana:"",meiKana:"",tel:""};

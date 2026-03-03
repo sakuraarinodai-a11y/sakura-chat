@@ -418,6 +418,7 @@ function checkPastReservations() {
     }
     reserv.visitCountThisMonth = d.visitCountThisMonth || 0;
     var daysSince = Math.floor((new Date() - new Date(d.lastDate)) / (1000*60*60*24));
+    reserv.daysSinceLast = daysSince; // 定期提案判定用
 
     if (daysSince > 90) {
       // 3ヶ月以上→初回扱い
@@ -763,7 +764,7 @@ function askRepeatMenu(lastMenu, useSame) {
     // 同じメニューで確定
     reserv.menu = lastMenu;
     addBot("「" + lastMenu + "」で予約します 🌸");
-    wait(function(){ askWho(); }, 400);
+    wait(function(){ askFamilyTogether(); }, 400);
     return;
   }
   // 別メニューを選ぶ
@@ -801,7 +802,7 @@ function onWhoSelect(val) {
     reserv.sei = patient.sei||""; reserv.mei = patient.mei||"";
     reserv.seiKana = patient.seiKana||""; reserv.meiKana = patient.meiKana||"";
     reserv.tel = patient.tel||"";
-    if (patient.name) { wait(function(){ askDate(); }, 400); }
+    if (patient.name) { wait(function(){ askFamilyTogether(); }, 400); }
     else { wait(function(){ addBot("お名前を教えていただけますか？\n（例：山田 太郎）"); step="name"; enableInput(); }, 400); }
   } else if (val === "new_family") {
     wait(function(){ addBot("ご家族・お友達のお名前を教えてください。\n（例：山田 花子）"); step="family_name"; enableInput(); }, 400);
@@ -811,8 +812,59 @@ function onWhoSelect(val) {
     reserv.sei=f.sei||""; reserv.mei=f.mei||"";
     reserv.seiKana=f.seiKana||""; reserv.meiKana=f.meiKana||"";
     reserv.tel=f.tel||patient.tel||"";
-    wait(function(){ addBot(f.name+"さんのご予約ですね 🌸"); wait(function(){ askDate(); }, 600); }, 400);
+    wait(function(){ addBot(f.name+"さんのご予約ですね 🌸"); wait(function(){ askFamilyTogether(); }, 600); }, 400);
   }
+}
+
+// ============================================================
+// ファミリー同行確認
+// ============================================================
+function askFamilyTogether() {
+  // family登録がない場合はスキップ
+  if (!family || family.length === 0) {
+    wait(function(){ askDate(); }, 400);
+    return;
+  }
+  // すでに同行者がいる場合はスキップ
+  if (reserv.companions && reserv.companions.length > 0) {
+    wait(function(){ askDate(); }, 400);
+    return;
+  }
+  addBot("ご一緒に来院される方はいますか？ 🌸");
+  wait(function(){
+    var choices = [{ label:"ご自身のみ", val:"none" }];
+    family.forEach(function(f, i){
+      choices.push({ label:f.name + "さんも一緒に来る", val:"family_"+i });
+    });
+    choices.push({ label:"他の方も一緒に来る", val:"new_companion" });
+    showChoices(choices, function(v){
+      if (v === "none") {
+        wait(function(){ askDate(); }, 400);
+      } else if (v === "new_companion") {
+        reserv.companions = reserv.companions || [];
+        wait(function(){ addCompanion(function(){ wait(function(){ askDate(); }, 400); }); }, 400);
+      } else {
+        var idx = parseInt(v.replace("family_",""));
+        var f = family[idx];
+        reserv.companions = reserv.companions || [];
+        reserv.companions.push(Object.assign({}, f));
+        addBot(f.name + "さんも一緒にご予約します 🌸");
+        // さらに追加いるか確認
+        wait(function(){
+          showChoices([
+            { label:"他にもいる", val:"more" },
+            { label:"以上です",   val:"done" },
+          ], function(v2){
+            if (v2 === "more") {
+              wait(function(){ addCompanion(function(){ wait(function(){ askDate(); }, 400); }); }, 400);
+            } else {
+              wait(function(){ askDate(); }, 400);
+            }
+          });
+        }, 600);
+      }
+    });
+  }, 600);
 }
 
 // ============================================================
@@ -1024,6 +1076,8 @@ function confirmReservation() {
         saveData("sakura_patient", patient);
       }
       addBot("ご予約の手続きが完了しました 🌸\nご確認まで少々お待ちください。");
+      // 定期提案判定のため次回予約数を確認
+      reserv.upcomingCount = data.upcomingCount || 0;
       wait(function(){ askArrival(); }, 1000);
     } else {
       addBot("⚠️ 予約登録に問題が発生しました。\nお電話（078-984-5788）でご確認ください。","error");
@@ -1097,16 +1151,257 @@ function showFinalConfirm() {
             + '<a href="' + SQUARE_URL + '" target="_blank" class="btnok gold" style="text-decoration:none;">サブスクに申し込む ✨</a>'
             + '</div>';
           document.getElementById("msgs").appendChild(w2); scrollB();
-          wait(function() {
-            addBot("当日はお気をつけてお越しください 🌸\nご不明な点はお電話（078-984-5788）までどうぞ。");
-          }, 400);
+          wait(function(){ askRegularVisit(); }, 800);
         }, 600);
       }, 800);
     } else {
-      wait(function() {
-        addBot("当日はお気をつけてお越しください 🌸\nご不明な点はお電話（078-984-5788）までどうぞ。");
-      }, 600);
+      wait(function(){ askRegularVisit(); }, 600);
     }
+  }, 400);
+}
+
+
+// ============================================================
+// 定期来院提案（前回通院10日以内 & 次回予約0〜1件）
+// ============================================================
+// ============================================================
+// 定期ケア：エントリー
+// ============================================================
+var _reg = {}; // 定期ケア設定作業用
+
+function askRegularVisit() {
+  var daysSince = reserv.daysSinceLast || 999;
+  var upcomingCount = reserv.upcomingCount || 0;
+
+  if (daysSince <= 10 && upcomingCount <= 1) {
+    wait(function(){
+      addBot("定期的なケアを続けると、より効果が出やすくなります 🌸\n定期予約をまとめて取りますか？");
+      wait(function(){
+        showChoices([
+          { label:"はい、定期予約を入れる", val:"yes" },
+          { label:"また今度にする",          val:"no"  },
+        ], function(v){
+          if (v === "yes") {
+            _reg = {
+              menu: reserv.menu,
+              sei: patient.sei||"", mei: patient.mei||"",
+              seiKana: patient.seiKana||"", meiKana: patient.meiKana||"",
+              tel: patient.tel||"",
+              baseDate: reserv.date, // 今回予約した日を基準
+            };
+            wait(function(){ askRegFrequency(); }, 400);
+          } else {
+            addBot("またのご来院をお待ちしております 🌸\nご不明な点はお電話（078-984-5788）までどうぞ。");
+          }
+        });
+      }, 600);
+    }, 400);
+  } else {
+    addBot("当日はお気をつけてお越しください 🌸\nご不明な点はお電話（078-984-5788）までどうぞ。");
+  }
+}
+
+// ① 頻度
+function askRegFrequency() {
+  addBot("どのくらいのペースで来院しますか？");
+  wait(function(){
+    showChoices([
+      { label:"毎週",   val:7  },
+      { label:"隔週",   val:14 },
+    ], function(v){
+      _reg.intervalDays = v;
+      wait(function(){ askRegTimeZone(); }, 400);
+    });
+  }, 600);
+}
+
+// ② 時間帯
+function askRegTimeZone() {
+  addBot("ご希望の時間帯はいつですか？");
+  wait(function(){
+    showChoices([
+      { label:"午前（8:00〜12:00）",  val:"morning"  },
+      { label:"昼（12:00〜15:00）",   val:"noon"     },
+      { label:"夕方（15:00以降）",     val:"evening"  },
+      { label:"どの時間帯でも",        val:"any"      },
+    ], function(v){
+      _reg.timeZone = v;
+      wait(function(){ askRegPeriod(); }, 400);
+    });
+  }, 600);
+}
+
+// ③ 期間
+function askRegPeriod() {
+  addBot("どの範囲まで予約を取りますか？");
+  wait(function(){
+    showChoices([
+      { label:"3ヶ月先まで一気に取る",     val:90  },
+      { label:"1ヶ月先まで（毎月確認する）", val:30  },
+    ], function(v){
+      _reg.periodDays = v;
+      wait(function(){ startRegularBooking(); }, 400);
+    });
+  }, 600);
+}
+
+// ④ 空き検索→順番に予約処理
+function startRegularBooking() {
+  // 対象日リストを生成
+  var targets = [];
+  var base = new Date(_reg.baseDate);
+  var limit = new Date(base.getTime() + _reg.periodDays * 24*60*60*1000);
+  var cur = new Date(base.getTime() + _reg.intervalDays * 24*60*60*1000);
+  var days = ["日","月","火","水","木","金","土"];
+  while (cur <= limit) {
+    // 日曜は除外
+    if (cur.getDay() !== 0) {
+      var y = cur.getFullYear(), m = pad(cur.getMonth()+1), d = pad(cur.getDate());
+      targets.push(y+"-"+m+"-"+d);
+    }
+    cur = new Date(cur.getTime() + _reg.intervalDays * 24*60*60*1000);
+  }
+  if (targets.length === 0) {
+    addBot("対象の日程がありませんでした 🌸");
+    return;
+  }
+  addBot(targets.length + "回分の空き枠を確認しています... ⏳");
+  showTyping();
+  _reg.targets   = targets;
+  _reg.results   = []; // 予約済みリスト
+  _reg.currentIdx = 0;
+  processNextRegDate();
+}
+
+// 1件ずつ処理
+function processNextRegDate() {
+  if (_reg.currentIdx >= _reg.targets.length) {
+    removeTyping();
+    showRegSummary();
+    return;
+  }
+  var dateStr = _reg.targets[_reg.currentIdx];
+  fetch(GAS_URL, { method:"POST", body:JSON.stringify({
+    token: AUTH_TOKEN,
+    action: "getSuggestedSlotsByTimeZone",
+    date: dateStr,
+    menu: _reg.menu,
+    timeZone: _reg.timeZone,
+  })})
+  .then(function(r){return r.json();})
+  .then(function(d){
+    if (!d.success || !d.slots || d.slots.length === 0) {
+      // 空きなし → スキップかその日変更を聞く
+      removeTyping();
+      askRegSkipOrChange(dateStr);
+    } else {
+      // 空きあり → 先頭のスロットで自動予約
+      var slot = d.slots[0];
+      fetch(GAS_URL, { method:"POST", body:JSON.stringify(Object.assign({
+        action:"makeReservation",
+        token: AUTH_TOKEN,
+        date: dateStr,
+        time: slot,
+        isRegular: true,
+      }, _reg))})
+      .then(function(r){return r.json();})
+      .then(function(r2){
+        if (r2.success) {
+          _reg.results.push({ date:dateStr, time:slot, status:"ok" });
+        } else {
+          _reg.results.push({ date:dateStr, time:slot, status:"fail", msg:r2.message });
+        }
+        _reg.currentIdx++;
+        processNextRegDate();
+      });
+    }
+  })
+  .catch(function(){
+    _reg.results.push({ date:_reg.targets[_reg.currentIdx], status:"error" });
+    _reg.currentIdx++;
+    processNextRegDate();
+  });
+}
+
+// 空きなし → 日を変えるかその日やめるか
+function askRegSkipOrChange(dateStr) {
+  var d = new Date(dateStr);
+  var days = ["日","月","火","水","木","金","土"];
+  var label = (d.getMonth()+1)+"月"+d.getDate()+"日（"+days[d.getDay()]+"）";
+  addBot(label + " は希望の時間帯に空きがありませんでした。\nどうしますか？");
+  wait(function(){
+    showChoices([
+      { label:"別の日にする",       val:"change" },
+      { label:"この日はやめておく", val:"skip"   },
+    ], function(v){
+      if (v === "skip") {
+        _reg.results.push({ date:dateStr, status:"skipped" });
+        _reg.currentIdx++;
+        showTyping();
+        processNextRegDate();
+      } else {
+        // 前後3日以内で代替日を提案
+        askRegAlternate(dateStr);
+      }
+    });
+  }, 600);
+}
+
+// 代替日選択
+function askRegAlternate(origDate) {
+  var choices = [];
+  var base = new Date(origDate);
+  for (var delta = -3; delta <= 3; delta++) {
+    if (delta === 0) continue;
+    var d = new Date(base.getTime() + delta * 24*60*60*1000);
+    if (d.getDay() === 0) continue; // 日曜除外
+    var days = ["日","月","火","水","木","金","土"];
+    var y = d.getFullYear(), m = pad(d.getMonth()+1), dd = pad(d.getDate());
+    choices.push({ label:(d.getMonth()+1)+"月"+d.getDate()+"日（"+days[d.getDay()]+"）", val:y+"-"+m+"-"+dd });
+  }
+  choices.push({ label:"この日はやめておく", val:"skip" });
+  addBot("代わりの日はいかがですか？");
+  wait(function(){
+    showChoices(choices, function(v){
+      if (v === "skip") {
+        _reg.results.push({ date:origDate, status:"skipped" });
+        _reg.currentIdx++;
+        showTyping();
+        processNextRegDate();
+      } else {
+        // 選んだ日で空きを再確認
+        _reg.targets[_reg.currentIdx] = v;
+        showTyping();
+        processNextRegDate();
+      }
+    });
+  }, 600);
+}
+
+// まとめ表示
+function showRegSummary() {
+  var ok      = _reg.results.filter(function(r){ return r.status==="ok"; });
+  var skipped = _reg.results.filter(function(r){ return r.status==="skipped"; });
+  var failed  = _reg.results.filter(function(r){ return r.status==="fail"||r.status==="error"; });
+
+  addBot("定期予約の設定が完了しました 🌸");
+  wait(function(){
+    var html2 = "<div class=\"card\">";
+    html2 += "<h3>📅 定期予約まとめ</h3>";
+    ok.forEach(function(r){
+      var d = new Date(r.date);
+      var days = ["日","月","火","水","木","金","土"];
+      html2 += "<div class=\"row\"><span class=\"lbl\">✅</span><span>"+(d.getMonth()+1)+"月"+d.getDate()+"日（"+days[d.getDay()]+"） "+r.time+"</span></div>";
+    });
+    if (skipped.length > 0) html2 += "<div class=\"row\"><span class=\"lbl\">⏭️ スキップ</span><span>"+skipped.length+"日</span></div>";
+    if (failed.length  > 0) html2 += "<div class=\"row\"><span class=\"lbl\">⚠️ 要確認</span><span>"+failed.length+"日</span></div>";
+    html2 += "</div>";
+    var wrap = document.createElement("div"); wrap.className = "cardwrap";
+    wrap.innerHTML = html2;
+    document.getElementById("msgs").appendChild(wrap); scrollB();
+    wait(function(){
+      addBot("当日はお気をつけてお越しください 🌸\nご不明な点はお電話（078-984-5788）までどうぞ。");
+    }, 600);
   }, 400);
 }
 
@@ -1300,20 +1595,28 @@ function handleFreeInput(text) {
     } else if (data.intent==="edit") {
       wait(function(){ showProfileEdit(); }, 600);
     } else {
-      // unknown・雑談 → フリー入力を続けられるようにenableInputも呼ぶ
+      // unknown → suggestがあれば「もしかして〇〇ですか？」と確認
       wait(function(){
-        showChoices([
-          { label:"予約する",              val:"reserve"     },
-          { label:"予約状況を確認したい",   val:"check"       },
-          { label:"登録情報を変更したい",   val:"editprofile" },
-          { label:"最初に戻る",             val:"restart"     },
-        ], function(v){
-          if      (v==="reserve")     { reserv={}; step=""; wait(function(){ onPurpose("reserve");    }, 400); }
+        var choices = [];
+        if (data.suggest && data.suggest_label) {
+          choices.push({ label:"✅ そうです：" + data.suggest_label, val:"suggest" });
+        }
+        choices = choices.concat([
+          { label:"📅 予約したい",            val:"reserve"     },
+          { label:"📋 予約状況を確認したい",   val:"check"       },
+          { label:"❌ キャンセル・変更したい", val:"cancel"      },
+          { label:"✏️ 登録情報を変更したい",  val:"editprofile" },
+          { label:"🔄 最初からやり直す",       val:"restart"     },
+        ]);
+        showChoices(choices, function(v){
+          _stallCount = 0;
+          if      (v==="suggest")     { wait(function(){ dispatchIntent(data.suggest); }, 400); }
+          else if (v==="reserve")     { reserv={}; step=""; wait(function(){ onPurpose("reserve"); }, 400); }
           else if (v==="check")       { wait(function(){ loadUpcomingReservations(patient); }, 400); }
+          else if (v==="cancel")      { wait(function(){ startCancelFlow(); }, 400); }
           else if (v==="editprofile") { wait(function(){ showProfileEdit(); }, 400); }
           else                        { reserv={}; step=""; wait(function(){ askPurpose(); }, 400); }
         });
-        // 選択肢と同時にフリー入力も受け付ける
         wait(function(){ enableInput(); }, 400);
       }, 800);
     }
@@ -1382,7 +1685,14 @@ function sendText() {
   } else if (step==="location_free") {
     step=""; reserv.location=text; wait(function(){ askMotivation(); }, 400);
   } else if (step==="other_free") {
-    step=""; handleFreeInput(text);
+    step="";
+    // 「別人・人違い・違う人」はGAS経由せず直接対応
+    if (/別人|人違い|違う人|別の人|別の方|自分じゃない|私じゃない/.test(text)) {
+      addBot("承知しました 🌸\n登録情報の変更・リセットができます。");
+      wait(function(){ showProfileEdit(); }, 600);
+    } else {
+      handleFreeInput(text);
+    }
   } else if (step==="cancel_tel") {
     step="";
     var cancelPat = Object.assign({}, patient, { tel: text.replace(/-/g,"") });
@@ -1425,11 +1735,14 @@ function showChoices(choices, cb) {
     btn.onclick = function() {
       wrap.querySelectorAll("button").forEach(function(b){b.disabled=true;b.style.opacity="0.4";});
       addUser(c.label);
+      if (_stallTimer) clearTimeout(_stallTimer); // ボタン押下でリセット
+      _stallCount = 0;
       setTimeout(function(){ cb(c.val, c.label); }, 400);
     };
     wrap.appendChild(btn);
   });
   document.getElementById("msgs").appendChild(wrap); scrollB();
+  resetStallTimer(); // 選択肢表示時にタイマー開始
 }
 
 function addBot(text, type) {
@@ -1451,10 +1764,90 @@ function removeTyping() { var el=document.getElementById("typing"); if(el) el.re
 function enableInput() {
   var i=document.getElementById("inp"),b=document.getElementById("sbtn");
   i.disabled=false; b.disabled=false; i.placeholder="メッセージを入力..."; i.focus();
+  resetStallTimer();
 }
 function disableInput() {
   var i=document.getElementById("inp"),b=document.getElementById("sbtn");
   i.disabled=true; b.disabled=true; i.placeholder="上の選択肢からお選びください";
+  resetStallTimer();
+}
+
+// ============================================================
+// intent文字列からアクションを実行
+// ============================================================
+function dispatchIntent(intent) {
+  if      (intent==="reserve")  { reserv={}; step=""; onPurpose("reserve"); }
+  else if (intent==="cancel")   { startCancelFlow(); }
+  else if (intent==="check")    { loadUpcomingReservations(patient); }
+  else if (intent==="edit")     { showProfileEdit(); }
+  else if (intent==="access")   {
+    showChoices([
+      { label:"🚗 車で来る", val:"car" },
+      { label:"🚶 徒歩・電車で来る", val:"walk" },
+    ], function(mode){
+      wait(function(){
+        showChoices([
+          { label:"神戸方面から", val:"kobe" },
+          { label:"三田市方面から", val:"sanda" },
+        ], function(dir){ onDirection(dir, mode); });
+      }, 600);
+    });
+  }
+  else if (intent==="hours" || intent==="price") {
+    showChoices([
+      { label:"予約に進む", val:"reserve" },
+      { label:"最初に戻る", val:"restart" },
+    ], function(){ reserv={}; step=""; wait(function(){ askPurpose(); }, 400); });
+  }
+  else { reserv={}; step=""; askPurpose(); }
+}
+
+// ============================================================
+// 止まり検知 → 自動復帰
+// ============================================================
+var _stallTimer = null;
+var _stallCount = 0;
+
+function resetStallTimer() {
+  if (_stallTimer) clearTimeout(_stallTimer);
+  // 入力が無効（選択肢待ち）の状態で30秒経過したら問いかける
+  var inp = document.getElementById("inp");
+  if (inp && inp.disabled) {
+    _stallTimer = setTimeout(function(){ onStall(); }, 10000);
+  }
+}
+
+function onStall() {
+  _stallCount++;
+  removeTyping(); // 万が一残っていたら除去
+  if (_stallCount >= 2) {
+    // 2回止まったら強制リセット
+    _stallCount = 0;
+    addBot("すみません、うまく進めませんでした 🙏\n最初からやり直します。");
+    wait(function(){
+      reserv = {}; step = "";
+      wait(function(){ askPurpose(); }, 600);
+    }, 800);
+  } else {
+    // 1回目は「こういうことですか？」と確認
+    addBot("少し止まってしまいました 🌸\nどのようなことをご希望でしたか？");
+    wait(function(){
+      showChoices([
+        { label:"📅 予約したい",            val:"reserve"     },
+        { label:"📋 予約状況を確認したい",   val:"check"       },
+        { label:"❌ キャンセル・変更したい", val:"cancel"      },
+        { label:"✏️ 登録情報を変更したい",  val:"editprofile" },
+        { label:"🔄 最初からやり直す",       val:"restart"     },
+      ], function(v){
+        _stallCount = 0;
+        if      (v==="reserve")     { reserv={}; step=""; wait(function(){ onPurpose("reserve"); }, 400); }
+        else if (v==="check")       { wait(function(){ loadUpcomingReservations(patient); }, 400); }
+        else if (v==="cancel")      { wait(function(){ startCancelFlow(); }, 400); }
+        else if (v==="editprofile") { wait(function(){ showProfileEdit(); }, 400); }
+        else                        { reserv={}; step=""; wait(function(){ askPurpose(); }, 400); }
+      });
+    }, 600);
+  }
 }
 
 

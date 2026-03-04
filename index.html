@@ -789,6 +789,11 @@ function onMotivationPlanOk() {
 function suggestMenu(menu) {
   reserv.menu = menu;
   addBot("「" + menu + "」でご予約します 🌸");
+  if (patient.name) {
+    reserv.sei=patient.sei||""; reserv.mei=patient.mei||"";
+    reserv.seiKana=patient.seiKana||""; reserv.meiKana=patient.meiKana||"";
+    reserv.tel=patient.tel||""; reserv.whoConfirmed=true;
+  }
   wait(function() { askWho(); }, 600);
 }
 
@@ -817,6 +822,11 @@ function onMenuSelect(val) {
   reserv.menu = val;
   wait(function() {
     addBot("「" + val + "」ですね 🌸");
+    if (patient.name) {
+      reserv.sei=patient.sei||""; reserv.mei=patient.mei||"";
+      reserv.seiKana=patient.seiKana||""; reserv.meiKana=patient.meiKana||"";
+      reserv.tel=patient.tel||""; reserv.whoConfirmed=true;
+    }
     wait(function() { askWho(); }, 600);
   }, 400);
 }
@@ -856,6 +866,20 @@ function askRepeatMenu(lastMenu, useSame) {
 
 
 function askWho() {
+  // すでに誰の予約か確定済みならスキップ
+  if (reserv.whoConfirmed && reserv.sei) {
+    wait(function(){ askFamilyTogether(); }, 400);
+    return;
+  }
+  // patient.name があり family が0人なら自動的にご自身として確定
+  if (patient.name && (!family || family.length === 0)) {
+    reserv.sei = patient.sei||""; reserv.mei = patient.mei||"";
+    reserv.seiKana = patient.seiKana||""; reserv.meiKana = patient.meiKana||"";
+    reserv.tel = patient.tel||"";
+    reserv.whoConfirmed = true;
+    wait(function(){ askFamilyTogether(); }, 400);
+    return;
+  }
   var choices = [{ label:"ご自身", val:"self" }];
   family.forEach(function(f, i) { choices.push({ label:f.name + "さん", val:"family_"+i }); });
   choices.push({ label:"家族・友人（新規登録）", val:"new_family" });
@@ -868,6 +892,7 @@ function onWhoSelect(val) {
     reserv.sei = patient.sei||""; reserv.mei = patient.mei||"";
     reserv.seiKana = patient.seiKana||""; reserv.meiKana = patient.meiKana||"";
     reserv.tel = patient.tel||"";
+    reserv.whoConfirmed = true;
     if (patient.name) { wait(function(){ askFamilyTogether(); }, 400); }
     else { wait(function(){ addBot("お名前を教えていただけますか？\n（例：山田 太郎）"); step="name"; enableInput(); }, 400); }
   } else if (val === "new_family") {
@@ -1156,7 +1181,8 @@ function confirmReservation() {
   .then(function(data) {
     removeTyping();
     if (data.success) {
-      if (!patient.name && reserv.sei) {
+      // 予約完了時も常に最新情報で patient を更新・保存
+      if (reserv.sei) {
         patient.sei=reserv.sei; patient.mei=reserv.mei;
         patient.seiKana=reserv.seiKana; patient.meiKana=reserv.meiKana;
         patient.name=reserv.sei+" "+reserv.mei; patient.tel=reserv.tel;
@@ -1824,13 +1850,22 @@ function sendText() {
 
   if (step==="name") {
     step=""; var p=text.trim().split(/[\s　]+/); reserv.sei=p[0]||text; reserv.mei=p[1]||"";
+    // 名前を即時保存
+    patient.sei=reserv.sei; patient.mei=reserv.mei;
+    patient.name=reserv.sei+(reserv.mei?" "+reserv.mei:"");
+    saveData("sakura_patient", patient);
     wait(function(){ addBot("フリガナを教えていただけますか？\n（例：ヤマダ タロウ）"); step="kana"; enableInput(); }, 400);
   } else if (step==="kana") {
     step=""; var kp=text.trim().split(/[\s　]+/); reserv.seiKana=kp[0]||text; reserv.meiKana=kp[1]||"";
+    // フリガナを即時保存
+    patient.seiKana=reserv.seiKana; patient.meiKana=reserv.meiKana;
+    saveData("sakura_patient", patient);
     wait(function(){ showChoices([{label:"📱 電話番号を入力する",val:"tel"},{label:"💚 LINEでお友達登録する",val:"line"}],onContactSelect); }, 400);
   } else if (step==="tel") {
     step=""; reserv.tel=text;
-    // メニューがまだ選ばれていない場合はメニュー選択へ、選ばれていれば日付へ
+    // 電話番号を即時保存
+    patient.tel=reserv.tel;
+    saveData("sakura_patient", patient);
     if (!reserv.menu) {
       wait(function(){ askMenuForNewUser(); }, 400);
     } else {

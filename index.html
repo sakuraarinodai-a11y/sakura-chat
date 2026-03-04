@@ -1100,7 +1100,7 @@ function confirmReservation() {
       reserv.upcomingCount = data.upcomingCount || 0;
       wait(function(){ askArrival(); }, 1000);
     } else {
-      addBot("⚠️ 予約登録に問題が発生しました。\nお電話（078-984-5788）でご確認ください。","error");
+      addBot("⚠️ 予約登録に問題が発生しました。\nお電話（078-984-5788）でご確認ください。","error"); showRestartButton();
     }
   });
 }
@@ -1451,7 +1451,7 @@ function onVisitAddress(address) {
           else { wait(function(){ addBot("またのご利用をお待ちしております 🌸"); }, 400); }
         });
       }, 600);
-    } else { addBot("住所の確認ができませんでした。\nお電話（078-984-5788）でご相談ください。","error"); }
+    } else { addBot("住所の確認ができませんでした。\nお電話（078-984-5788）でご相談ください。","error"); showRestartButton(); }
   });
 }
 
@@ -1478,12 +1478,12 @@ function loadUpcomingReservations(pat) {
   .then(function(d){
     removeTyping();
     if (!d.success || !d.reservations || d.reservations.length === 0) {
-      addBot("今後のご予約は見つかりませんでした。\nお電話（"+TEL+"）でご確認ください。");
+      addBot("今後のご予約は見つかりませんでした。\nお電話（"+TEL+"）でご確認ください。"); showRestartButton();
       return;
     }
     showCancelList(d.reservations);
   })
-  .catch(function(){ removeTyping(); addBot("予約の確認でエラーが発生しました 😢\nお電話（"+TEL+"）でご確認ください。", "error"); });
+  .catch(function(){ removeTyping(); addBot("予約の確認でエラーが発生しました 😢\nお電話（"+TEL+"）でご確認ください。", "error"); showRestartButton(); });
 }
 
 function showCancelList(reservations) {
@@ -1527,8 +1527,7 @@ function _onCancelChkChange(idx) {
 
 function _toggleSelectAll() {
   var total = window._cancelReservations.length;
-  var checkedCount = Object.values(window._cancelSelected).filter(Boolean).length;
-  var allChecked = (checkedCount === total);
+  var allChecked = Object.values(window._cancelSelected).filter(Boolean).length === total;
   window._cancelReservations.forEach(function(_, i){
     var chk = document.getElementById("cancel-chk-"+i);
     if (chk) { chk.checked = !allChecked; window._cancelSelected[i] = !allChecked; }
@@ -1565,7 +1564,7 @@ function execBulkCancel() {
         { label:"やめる", val:"no" },
       ], function(v){
         if (v === "yes") { _execCancelQueue(targets, 0, []); }
-        else { addBot("キャンセルを中止しました 🌸"); }
+        else { addBot("キャンセルを中止しました 🌸"); showRestartButton(); }
       });
     }, 600);
   }, 400);
@@ -1577,19 +1576,11 @@ function _execCancelQueue(targets, idx, results) {
   showTyping();
   fetch(GAS_URL, { method:"POST", body:JSON.stringify({
     token:AUTH_TOKEN, action:"cancelReservation",
-    numericId:r.numericId, eventId:r.eventId, date:r.date, time:r.time, calendar:r.calendar, sei:r.title ? r.title.split(" ")[0] : "",
+    numericId:r.numericId, eventId:r.eventId, date:r.date, time:r.time, calendar:r.calendar, sei:r.sei||"",
   })})
   .then(function(res){ return res.json(); })
-  .then(function(d){
-    removeTyping();
-    results.push({ r:r, success:d.success, message:d.message||"" });
-    _execCancelQueue(targets, idx+1, results);
-  })
-  .catch(function(){
-    removeTyping();
-    results.push({ r:r, success:false, message:"通信エラー" });
-    _execCancelQueue(targets, idx+1, results);
-  });
+  .then(function(d){ removeTyping(); results.push({r:r,success:d.success,message:d.message||""}); _execCancelQueue(targets,idx+1,results); })
+  .catch(function(){ removeTyping(); results.push({r:r,success:false,message:"通信エラー"}); _execCancelQueue(targets,idx+1,results); });
 }
 
 function _showBulkCancelResult(results) {
@@ -1603,17 +1594,14 @@ function _showBulkCancelResult(results) {
   });
   if (ng.length > 0) {
     html += '<div class="row" style="color:#ef4444"><span class="lbl">⚠️ 失敗</span><span>'+ng.length+'件</span></div>';
-    ng.forEach(function(x){
-      html += '<div style="font-size:11px;color:#ef4444;padding:2px 0;">'+x.r.date+" "+x.r.time+" "+x.r.menu+" — "+(x.message||"エラー")+'</div>';
-    });
+    ng.forEach(function(x){ html += '<div style="font-size:11px;color:#ef4444;padding:2px 0;">'+x.r.date+" "+x.r.time+" "+x.r.menu+" — "+(x.message||"エラー")+'</div>'; });
   }
   html += '</div>';
   var wrap = document.createElement("div"); wrap.className="cardwrap"; wrap.innerHTML=html;
   document.getElementById("msgs").appendChild(wrap); scrollB();
   addBot(ok.length+"件のキャンセルが完了しました ✅");
-  if (ng.length > 0) wait(function(){
-    addBot("⚠️ "+ng.length+"件はキャンセルできませんでした。\nお電話（"+TEL+"）にてご確認ください。","error");
-  }, 400);
+  if (ng.length > 0) wait(function(){ addBot("⚠️ "+ng.length+"件はキャンセルできませんでした。\nお電話（"+TEL+"）にてご確認ください。","error"); }, 400);
+  showRestartButton();
 }
 
 function onCancelSelect(idx, mode) {
@@ -1630,7 +1618,7 @@ function onCancelSelect(idx, mode) {
           { label:"やめる", val:"no" },
         ], function(v){
           if (v === "yes") { execCancel(r, null); }
-          else { addBot("キャンセルを中止しました 🌸"); }
+          else { addBot("キャンセルを中止しました 🌸"); showRestartButton(); }
         });
       }, 600);
     }, 400);
@@ -1652,7 +1640,7 @@ function onCancelSelect(idx, mode) {
               wait(function(){ askDate(); }, 600);
             });
           } else {
-            addBot("変更を中止しました 🌸");
+            addBot("変更を中止しました 🌸"); showRestartButton();
           }
         });
       }, 600);
@@ -1664,8 +1652,7 @@ function execCancel(r, callback) {
   addBot("キャンセル処理をしています 🌸");
   showTyping();
   fetch(GAS_URL, { method:"POST", body:JSON.stringify({ token:AUTH_TOKEN, action:"cancelReservation",
-    numericId:r.numericId, eventId:r.eventId, date:r.date, time:r.time, calendar:r.calendar,
-    sei: r.title ? r.title.split(" ")[0] : "" }) })
+    numericId:r.numericId, eventId:r.eventId, date:r.date, time:r.time, calendar:r.calendar }) })
   .then(function(r2){return r2.json();})
   .then(function(d){
     removeTyping();
@@ -1673,10 +1660,10 @@ function execCancel(r, callback) {
       addBot("キャンセルが完了しました ✅\n" + r.date + " " + r.time + "の「" + r.menu + "」");
       if (callback) { wait(callback, 800); }
     } else {
-      addBot("⚠️ " + (d.message || "キャンセルに失敗しました。") + "\nお電話（"+TEL+"）でご確認ください。", "error");
+      addBot("⚠️ " + (d.message || "キャンセルに失敗しました。") + "\nお電話（"+TEL+"）でご確認ください。", "error"); showRestartButton();
     }
   })
-  .catch(function(){ removeTyping(); addBot("通信エラーでキャンセルできませんでした 😢\nお電話（"+TEL+"）にてご連絡ください。", "error"); });
+  .catch(function(){ removeTyping(); addBot("通信エラーでキャンセルできませんでした 😢\nお電話（"+TEL+"）にてご連絡ください。", "error"); showRestartButton(); });
 }
 
 function handleFreeInput(text) {
@@ -1872,6 +1859,15 @@ function showChoices(choices, cb) {
     wrap.appendChild(btn);
   });
   document.getElementById("msgs").appendChild(wrap); scrollB();
+}
+
+// エラー・行き詰まり後に「最初に戻る」ボタンを表示
+function showRestartButton() {
+  wait(function(){
+    showChoices([{ label:"🔄 最初に戻る", val:"restart" }], function(){
+      reserv={}; step=""; wait(function(){ askPurpose(); }, 400);
+    });
+  }, 400);
 }
 
 function addBot(text, type) {

@@ -129,6 +129,7 @@
     <div class="hicon">🌸</div>
     <div class="htxt"><h1>サクラ整骨院</h1><p>AI予約アシスタント</p></div>
     <div class="hstatus"><div class="dot"></div>受付中 <span id="admin-panel-btn" style="display:none;cursor:pointer;margin-left:6px;" onclick="showAdminPanel()">🛠</span></div>
+    <button onclick="hardRestart()" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);color:white;font-size:11px;padding:5px 10px;border-radius:12px;cursor:pointer;white-space:nowrap;flex-shrink:0;">🔄 最初から</button>
   </div>
   <div class="msgs" id="msgs"></div>
   <!-- 管理者パネル（通常時は非表示） -->
@@ -935,6 +936,27 @@ function askFamilyTogether() {
 // ============================================================
 // 日付選択
 // ============================================================
+function askMenuForNewUser() {
+  addBot("ご希望のメニューをお選びください 🌸");
+  wait(function(){
+    showChoices([
+      { label:"痛み・不調を治したい",       val:"pain" },
+      { label:"酸素カプセル",                val:"酸素カプセル" },
+      { label:"楽トレ（EMS）",               val:"楽トレ" },
+      { label:"セルフトレーニング",          val:"セルフトレーニング" },
+      { label:"マンツーマントレーニング",    val:"マンツーマントレーニング" },
+    ], function(v){
+      if (v === "pain") {
+        wait(function(){ askLocationAndMenu(); }, 400);
+      } else {
+        reserv.menu = v;
+        addBot("「" + v + "」で予約します 🌸");
+        wait(function(){ askFamilyTogether(); }, 400);
+      }
+    });
+  }, 600);
+}
+
 function askDate() {
   addBot("ご希望の日はいつですか？");
   wait(function() {
@@ -1807,7 +1829,13 @@ function sendText() {
     step=""; var kp=text.trim().split(/[\s　]+/); reserv.seiKana=kp[0]||text; reserv.meiKana=kp[1]||"";
     wait(function(){ showChoices([{label:"📱 電話番号を入力する",val:"tel"},{label:"💚 LINEでお友達登録する",val:"line"}],onContactSelect); }, 400);
   } else if (step==="tel") {
-    step=""; reserv.tel=text; wait(function(){ askDate(); }, 400);
+    step=""; reserv.tel=text;
+    // メニューがまだ選ばれていない場合はメニュー選択へ、選ばれていれば日付へ
+    if (!reserv.menu) {
+      wait(function(){ askMenuForNewUser(); }, 400);
+    } else {
+      wait(function(){ askFamilyTogether(); }, 400);
+    }
   } else if (step==="date") {
     step=""; reserv.date=text; wait(function(){ askTimeZone(text); }, 400);
   } else if (step==="family_name") {
@@ -2440,6 +2468,16 @@ function returnToAdminPanel() {
   reserv = {};
   step = "";
   renderAdminPanel();
+}
+
+function hardRestart() {
+  if (!confirm("最初からやり直しますか？\n入力中の内容はリセットされます。")) return;
+  reserv = {};
+  step = "";
+  var msgs = document.getElementById("msgs");
+  msgs.innerHTML = "";
+  addBot("最初からやり直します 🌸");
+  wait(function(){ askPurpose(); }, 600);
 }
 
 document.getElementById("inp").addEventListener("keydown",function(e){

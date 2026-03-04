@@ -789,10 +789,13 @@ function onMotivationPlanOk() {
 function suggestMenu(menu) {
   reserv.menu = menu;
   addBot("「" + menu + "」でご予約します 🌸");
+  // patient.name または既に reserv に名前が入っていれば whoConfirmed 確定
   if (patient.name) {
     reserv.sei=patient.sei||""; reserv.mei=patient.mei||"";
     reserv.seiKana=patient.seiKana||""; reserv.meiKana=patient.meiKana||"";
     reserv.tel=patient.tel||""; reserv.whoConfirmed=true;
+  } else if (reserv.sei) {
+    reserv.whoConfirmed=true;
   }
   wait(function() { askWho(); }, 600);
 }
@@ -826,6 +829,8 @@ function onMenuSelect(val) {
       reserv.sei=patient.sei||""; reserv.mei=patient.mei||"";
       reserv.seiKana=patient.seiKana||""; reserv.meiKana=patient.meiKana||"";
       reserv.tel=patient.tel||""; reserv.whoConfirmed=true;
+    } else if (reserv.sei) {
+      reserv.whoConfirmed=true;
     }
     wait(function() { askWho(); }, 600);
   }, 400);
@@ -868,6 +873,12 @@ function askRepeatMenu(lastMenu, useSame) {
 function askWho() {
   // すでに誰の予約か確定済みならスキップ
   if (reserv.whoConfirmed && reserv.sei) {
+    wait(function(){ askFamilyTogether(); }, 400);
+    return;
+  }
+  // reserv.sei が入力済み（名前ステップ通過済み）ならそのまま確定
+  if (reserv.sei) {
+    reserv.whoConfirmed = true;
     wait(function(){ askFamilyTogether(); }, 400);
     return;
   }

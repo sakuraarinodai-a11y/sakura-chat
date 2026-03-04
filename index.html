@@ -316,7 +316,7 @@ function finishSurvey() {
     });
   } else {
     addBot("ご意見をありがとうございます 🌸\nスタッフに必ずお伝えします。");
-    fetch(GAS_URL, { method:"POST", body:JSON.stringify({ action:"notifyStaff", type:"low_rating", survey:surveyAnswers, patient:patient.name }) });
+    fetch(GAS_URL, { method:"POST", body:JSON.stringify({ token:AUTH_TOKEN, action:"notifyStaff", type:"low_rating", survey:surveyAnswers, patient:patient.name }) });
     wait(function(){ askPurpose(); }, 800);
   }
 }
@@ -1084,7 +1084,7 @@ function confirmReservation() {
   var motivationText = { quick:"早く痛みを取りたい", fundamental:"根本から改善・再発させたくない", longterm:"定期的にずっと診てもらいたい", maintain:"体の維持・管理がしたい" };
   reserv.motivationText = motivationText[reserv.motivation] || "";
 
-  fetch(GAS_URL, { method:"POST", body:JSON.stringify(Object.assign({action:"makeReservation"},reserv)) })
+  fetch(GAS_URL, { method:"POST", body:JSON.stringify(Object.assign({ token:AUTH_TOKEN, action:"makeReservation" }, reserv)) })
   .then(function(r){return r.json();})
   .then(function(data) {
     removeTyping();
@@ -1132,7 +1132,7 @@ function askArrival() {
   }, 600);
 }
 
-function onDirection(val) {
+function onDirection(val, mode) {
   var url = val==="kobe" ? YOUTUBE_KOBE : YOUTUBE_SANDA;
   var label = val==="kobe" ? "神戸方面" : "三田市方面";
   wait(function() {
@@ -1432,7 +1432,7 @@ function onVisitAddress(address) {
   reserv.visitAddress = address;
   addBot("距離を確認しています...");
   showTyping();
-  fetch(GAS_URL, { method:"POST", body:JSON.stringify({ action:"calcDistance", address:address }) })
+  fetch(GAS_URL, { method:"POST", body:JSON.stringify({ token:AUTH_TOKEN, action:"calcDistance", address:address }) })
   .then(function(r){return r.json();})
   .then(function(data) {
     removeTyping();
@@ -1796,7 +1796,7 @@ function sendText() {
     step=""; wait(function(){ onVisitAddress(text); }, 400);
   } else if (step==="complaint") {
     step="";
-    fetch(GAS_URL, { method:"POST", body:JSON.stringify({ action:"notifyStaff", type:"complaint", message:text, patient:patient.name }) });
+    fetch(GAS_URL, { method:"POST", body:JSON.stringify({ token:AUTH_TOKEN, action:"notifyStaff", type:"complaint", message:text, patient:patient.name }) });
     wait(function(){ addBot("ありがとうございます。必ずスタッフに伝えます 🌸"); wait(function(){ askPurpose(); }, 600); }, 400);
   } else if (step==="survey_symptom") {
     step=""; surveyAnswers.symptom=text; wait(function(){ surveyPain1(); }, 400);

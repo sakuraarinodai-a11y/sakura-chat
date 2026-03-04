@@ -70,6 +70,24 @@
   .sbtn:disabled { background:#f3c4cf; cursor:not-allowed; }
   .badge { display:inline-block; background:var(--pink); color:white; font-size:11px; padding:2px 8px; border-radius:10px; margin-left:6px; vertical-align:middle; }
   .badge.gold { background:#f59e0b; }
+  /* 複数選択キャンセル */
+  .cancel-row { display:flex; align-items:center; gap:8px; padding:10px 0; border-bottom:1px solid #f9a8b8; }
+  .cancel-row:last-of-type { border-bottom:none; }
+  .cancel-check-label { display:flex; align-items:center; gap:10px; flex:1; cursor:pointer; min-width:0; }
+  .cancel-check-label input[type="checkbox"] { display:none; }
+  .cancel-check-box { width:20px; height:20px; border:2px solid var(--pink); border-radius:6px; flex-shrink:0; display:flex; align-items:center; justify-content:center; transition:all 0.15s; background:white; }
+  .cancel-check-label input:checked + .cancel-check-box { background:var(--pink); }
+  .cancel-check-label input:checked + .cancel-check-box::after { content:"✓"; color:white; font-size:13px; font-weight:700; }
+  .cancel-row-info { display:flex; flex-direction:column; gap:2px; min-width:0; }
+  .cancel-row-date { font-weight:600; font-size:13px; color:var(--text); }
+  .cancel-row-menu { font-size:12px; color:var(--gray); }
+  .cancel-change-btn { padding:6px 12px; font-size:12px; flex-shrink:0; }
+  .cancel-footer { display:flex; gap:8px; margin-top:12px; }
+  .cancel-bulk-btn { flex:1; padding:10px; background:var(--pink); color:white; border:none; border-radius:12px; font-size:13px; font-weight:500; cursor:pointer; transition:background 0.2s; }
+  .cancel-bulk-btn:hover:not(:disabled) { background:var(--pink-dark); }
+  .cancel-bulk-btn:disabled { background:#f3c4cf; cursor:not-allowed; }
+  .cancel-all-btn { padding:10px 14px; background:white; color:var(--pink-dark); border:1.5px solid var(--pink); border-radius:12px; font-size:13px; cursor:pointer; white-space:nowrap; }
+  .cancel-all-btn:hover { background:var(--pink-light); }
 </style>
 </head>
 <body>
@@ -100,8 +118,10 @@ function row(l,v){ return '<div class="row"><span class="lbl">'+l+'</span><span>
 function saveData(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){} }
 function loadData(k){ try{var d=localStorage.getItem(k);return d?JSON.parse(d):null;}catch(e){return null;} }
 
-var GAS_URL = "https://script.google.com/macros/s/AKfycbyfHn9LJJMs7KQNi0rxTVUTwvOlma_VwM8sXdabL693gx9h1xguR-vibe3D8MbZseR6/exec";
-var LINE_URL = "https://line.me/R/ti/p/%40487yoson";
+var GAS_URL    = "https://script.google.com/macros/s/AKfycbyfHn9LJJMs7KQNi0rxTVUTwvOlma_VwM8sXdabL693gx9h1xguR-vibe3D8MbZseR6/exec";
+var AUTH_TOKEN = "sakura_2026_secret";
+var TEL        = "078-984-5788";
+var LINE_URL   = "https://line.me/R/ti/p/%40487yoson";
 var YOUTUBE_KOBE = "https://youtu.be/_wXc0tYJ5wk?si=XL0Kk8ZhG-uBq-Rx";
 var YOUTUBE_SANDA = "https://youtu.be/u7JdsKxg6yM?si=TaoGEgALM42uw-Kt";
 var SQUARE_URL = "https://square.link/u/eB3F1BoG";
@@ -1468,27 +1488,137 @@ function loadUpcomingReservations(pat) {
 
 function showCancelList(reservations) {
   window._cancelReservations = reservations;
-  addBot("以下のご予約があります 🌸\nどちらを操作しますか？");
+  window._cancelSelected = {};
+  addBot("以下のご予約があります 🌸\nキャンセルしたい予約にチェックを入れてください。");
   wait(function(){
-    var wrap = document.createElement("div"); wrap.className="cardwrap";
-    var h = '<div class="card"><h3>📅 今後のご予約</h3>';
+    var msgs = document.getElementById("msgs");
+    var outer = document.createElement("div");
+    outer.className = "cardwrap"; outer.id = "cancel-card-outer";
+    var days = ["日","月","火","水","木","金","土"];
+    var h = '<div class="card" id="cancel-card"><h3>📅 今後のご予約</h3>';
     reservations.forEach(function(r, i){
-      h += '<div style="border-bottom:1px solid #f9a8b8;padding:10px 0;">';
-      h += '<div style="font-weight:bold;margin-bottom:4px;">' + esc(r.date) + ' ' + esc(r.time) + '</div>';
-      h += '<div style="margin-bottom:6px;">' + esc(r.menu) + '</div>';
-      h += '<div style="display:flex;gap:6px;">';
-      h += '<button class="cbtn" onclick="onCancelSelect(' + i + ',\'cancel\')">キャンセル</button>';
-      h += '<button class="cbtn gold" onclick="onCancelSelect(' + i + ',\'change\')">変更</button>';
-      h += '</div></div>';
+      var d = new Date(r.date);
+      var dayLabel = (d.getMonth()+1)+"月"+d.getDate()+"日（"+days[d.getDay()]+"） "+esc(r.time);
+      h += '<div class="cancel-row" id="cancel-row-'+i+'">';
+      h += '<label class="cancel-check-label">';
+      h += '<input type="checkbox" class="cancel-chk" id="cancel-chk-'+i+'" onchange="_onCancelChkChange('+i+')">';
+      h += '<span class="cancel-check-box"></span>';
+      h += '<span class="cancel-row-info">';
+      h += '<span class="cancel-row-date">'+dayLabel+'</span>';
+      h += '<span class="cancel-row-menu">'+esc(r.menu)+'</span>';
+      h += '</span></label>';
+      h += '<button class="cbtn gold cancel-change-btn" onclick="onCancelSelect('+i+',\'change\')">変更</button>';
+      h += '</div>';
     });
-    h += '</div>';
-    wrap.innerHTML = h;
-    document.getElementById("msgs").appendChild(wrap); scrollB();
+    h += '<div class="cancel-footer">';
+    h += '<button class="cancel-bulk-btn" id="cancel-bulk-btn" onclick="execBulkCancel()" disabled>まとめてキャンセル（0件）</button>';
+    h += '<button class="cancel-all-btn" id="cancel-all-btn" onclick="_toggleSelectAll()">すべて選択</button>';
+    h += '</div></div>';
+    outer.innerHTML = h;
+    msgs.appendChild(outer); scrollB();
+  }, 400);
+}
+
+function _onCancelChkChange(idx) {
+  var chk = document.getElementById("cancel-chk-"+idx);
+  if (chk) window._cancelSelected[idx] = chk.checked;
+  _updateCancelBulkBtn();
+}
+
+function _toggleSelectAll() {
+  var total = window._cancelReservations.length;
+  var checkedCount = Object.values(window._cancelSelected).filter(Boolean).length;
+  var allChecked = (checkedCount === total);
+  window._cancelReservations.forEach(function(_, i){
+    var chk = document.getElementById("cancel-chk-"+i);
+    if (chk) { chk.checked = !allChecked; window._cancelSelected[i] = !allChecked; }
+  });
+  var allBtn = document.getElementById("cancel-all-btn");
+  if (allBtn) allBtn.textContent = allChecked ? "すべて選択" : "すべて解除";
+  _updateCancelBulkBtn();
+}
+
+function _updateCancelBulkBtn() {
+  var count = Object.values(window._cancelSelected).filter(Boolean).length;
+  var btn = document.getElementById("cancel-bulk-btn");
+  if (!btn) return;
+  btn.disabled = (count === 0);
+  btn.textContent = count > 0 ? "まとめてキャンセル（"+count+"件）" : "まとめてキャンセル（0件）";
+}
+
+function execBulkCancel() {
+  var targets = window._cancelReservations.filter(function(_, i){ return window._cancelSelected[i]; });
+  if (targets.length === 0) return;
+  var card = document.getElementById("cancel-card");
+  if (card) card.querySelectorAll("input,button").forEach(function(el){ el.disabled=true; el.style.opacity="0.4"; });
+  var days = ["日","月","火","水","木","金","土"];
+  var names = targets.map(function(r){
+    var d = new Date(r.date);
+    return (d.getMonth()+1)+"月"+d.getDate()+"日（"+days[d.getDay()]+"） "+r.time+"「"+r.menu+"」";
+  }).join("\n");
+  addUser(targets.length+"件をキャンセル");
+  wait(function(){
+    addBot("以下の予約をキャンセルしてよいですか？\n\n"+names+"\n\n※予約時間の2時間前まで受け付けます。");
+    wait(function(){
+      showChoices([
+        { label:"はい、キャンセルします", val:"yes" },
+        { label:"やめる", val:"no" },
+      ], function(v){
+        if (v === "yes") { _execCancelQueue(targets, 0, []); }
+        else { addBot("キャンセルを中止しました 🌸"); }
+      });
+    }, 600);
+  }, 400);
+}
+
+function _execCancelQueue(targets, idx, results) {
+  if (idx >= targets.length) { _showBulkCancelResult(results); return; }
+  var r = targets[idx];
+  showTyping();
+  fetch(GAS_URL, { method:"POST", body:JSON.stringify({
+    token:AUTH_TOKEN, action:"cancelReservation",
+    numericId:r.numericId, eventId:r.eventId, date:r.date, time:r.time, calendar:r.calendar, sei:r.title ? r.title.split(" ")[0] : "",
+  })})
+  .then(function(res){ return res.json(); })
+  .then(function(d){
+    removeTyping();
+    results.push({ r:r, success:d.success, message:d.message||"" });
+    _execCancelQueue(targets, idx+1, results);
+  })
+  .catch(function(){
+    removeTyping();
+    results.push({ r:r, success:false, message:"通信エラー" });
+    _execCancelQueue(targets, idx+1, results);
+  });
+}
+
+function _showBulkCancelResult(results) {
+  var ok = results.filter(function(x){ return x.success; });
+  var ng = results.filter(function(x){ return !x.success; });
+  var days = ["日","月","火","水","木","金","土"];
+  var html = '<div class="card"><h3>✅ キャンセル結果</h3>';
+  ok.forEach(function(x){
+    var d = new Date(x.r.date);
+    html += '<div class="row"><span class="lbl">✅</span><span>'+(d.getMonth()+1)+"月"+d.getDate()+"日（"+days[d.getDay()]+"） "+x.r.time+" "+x.r.menu+'</span></div>';
+  });
+  if (ng.length > 0) {
+    html += '<div class="row" style="color:#ef4444"><span class="lbl">⚠️ 失敗</span><span>'+ng.length+'件</span></div>';
+    ng.forEach(function(x){
+      html += '<div style="font-size:11px;color:#ef4444;padding:2px 0;">'+x.r.date+" "+x.r.time+" "+x.r.menu+" — "+(x.message||"エラー")+'</div>';
+    });
+  }
+  html += '</div>';
+  var wrap = document.createElement("div"); wrap.className="cardwrap"; wrap.innerHTML=html;
+  document.getElementById("msgs").appendChild(wrap); scrollB();
+  addBot(ok.length+"件のキャンセルが完了しました ✅");
+  if (ng.length > 0) wait(function(){
+    addBot("⚠️ "+ng.length+"件はキャンセルできませんでした。\nお電話（"+TEL+"）にてご確認ください。","error");
   }, 400);
 }
 
 function onCancelSelect(idx, mode) {
-  document.querySelectorAll('.cardwrap .cbtn').forEach(function(b){ b.disabled=true; b.style.opacity="0.4"; });
+  var card = document.getElementById("cancel-card");
+  if (card) card.querySelectorAll("input,button").forEach(function(el){ el.disabled=true; el.style.opacity="0.4"; });
   var r = window._cancelReservations[idx];
   if (mode === "cancel") {
     addUser("キャンセル：" + r.date + " " + r.time + " " + r.menu);
@@ -1534,7 +1664,8 @@ function execCancel(r, callback) {
   addBot("キャンセル処理をしています 🌸");
   showTyping();
   fetch(GAS_URL, { method:"POST", body:JSON.stringify({ token:AUTH_TOKEN, action:"cancelReservation",
-    numericId:r.numericId, eventId:r.eventId, date:r.date, time:r.time, calendar:r.calendar }) })
+    numericId:r.numericId, eventId:r.eventId, date:r.date, time:r.time, calendar:r.calendar,
+    sei: r.title ? r.title.split(" ")[0] : "" }) })
   .then(function(r2){return r2.json();})
   .then(function(d){
     removeTyping();

@@ -92,12 +92,13 @@
   /* 管理者モード */
   .admin-badge { background:#1e40af; color:white; font-size:11px; padding:2px 10px; border-radius:10px; margin-left:8px; vertical-align:middle; letter-spacing:0.5px; }
   .admin-header-bar { background:linear-gradient(135deg,#1e3a8a,#1e40af); }
-  .admin-panel { padding:12px 16px; }
+  .admin-panel { padding:12px 16px; background:#0f172a; }
   .admin-section { margin-bottom:16px; }
-  .admin-section h4 { font-size:13px; font-weight:700; color:#1e40af; margin-bottom:8px; padding-bottom:4px; border-bottom:2px solid #bfdbfe; }
+  .admin-section h4 { font-size:13px; font-weight:700; color:#93c5fd; margin-bottom:8px; padding-bottom:4px; border-bottom:2px solid #1e3a8a; }
   .admin-search-row { display:flex; gap:8px; margin-bottom:8px; }
-  .admin-inp { flex:1; border:1.5px solid #bfdbfe; border-radius:10px; padding:8px 12px; font-size:13px; font-family:inherit; outline:none; }
-  .admin-inp:focus { border-color:#1e40af; }
+  .admin-inp { flex:1; border:1.5px solid #1e3a8a; border-radius:10px; padding:8px 12px; font-size:13px; font-family:inherit; outline:none; background:#1e293b; color:#e2e8f0; }
+  .admin-inp::placeholder { color:#64748b; }
+  .admin-inp:focus { border-color:#3b82f6; }
   .admin-btn { padding:8px 14px; background:#1e40af; color:white; border:none; border-radius:10px; font-size:13px; cursor:pointer; white-space:nowrap; }
   .admin-btn:hover { background:#1e3a8a; }
   .admin-btn.red { background:#dc2626; }
@@ -106,12 +107,12 @@
   .admin-btn.green:hover { background:#047857; }
   .admin-btn.gray { background:#6b7280; }
   .admin-btn.gray:hover { background:#4b5563; }
-  .admin-result { background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px; padding:12px; font-size:13px; margin-top:8px; }
-  .admin-result .arow { display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid #dbeafe; }
+  .admin-result { background:#1e293b; border:1px solid #1e3a8a; border-radius:10px; padding:12px; font-size:13px; margin-top:8px; color:#e2e8f0; }
+  .admin-result .arow { display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid #1e3a8a; }
   .admin-result .arow:last-of-type { border-bottom:none; }
-  .admin-result .albl { color:#6b7280; font-size:12px; }
+  .admin-result .albl { color:#94a3b8; font-size:12px; }
   .admin-tab-row { display:flex; gap:6px; margin-bottom:12px; flex-wrap:wrap; }
-  .admin-tab { padding:6px 14px; border:1.5px solid #bfdbfe; border-radius:20px; font-size:12px; color:#1e40af; cursor:pointer; background:white; }
+  .admin-tab { padding:6px 14px; border:1.5px solid #1e3a8a; border-radius:20px; font-size:12px; color:#93c5fd; cursor:pointer; background:#1e293b; }
   .admin-tab.active { background:#1e40af; color:white; border-color:#1e40af; }
   .admin-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:100; display:flex; align-items:center; justify-content:center; }
   .admin-modal { background:white; border-radius:16px; padding:24px; width:320px; box-shadow:0 8px 40px rgba(0,0,0,0.2); }
@@ -126,7 +127,7 @@
 <body>
 <div class="wrap">
   <div class="header">
-    <div class="hicon">🌸</div>
+    <div class="hicon" id="hicon-logo" onclick="onLogoTap()" style="cursor:pointer;user-select:none;">🌸</div>
     <div class="htxt"><h1>サクラ整骨院</h1><p>AI予約アシスタント</p></div>
     <div class="hstatus"><div class="dot"></div>受付中 <span id="admin-panel-btn" style="display:none;cursor:pointer;margin-left:6px;" onclick="showAdminPanel()">🛠</span></div>
     <button onclick="hardRestart()" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);color:white;font-size:11px;padding:5px 10px;border-radius:12px;cursor:pointer;white-space:nowrap;flex-shrink:0;">🔄 最初から</button>
@@ -178,11 +179,6 @@ var adminProxyPatient = null; // 代理操作中の患者情報
 window.onload = function() {
   wait(function() {
     if (patient.name) {
-      // 「サクラ整骨院」でログインしている場合は管理者パスワードを求める
-      if (patient.name === "サクラ整骨院") {
-        showAdminPasswordModal();
-        return;
-      }
       addBot("おかえりなさい、" + patient.name + "さん 🌸");
       wait(function() {
         var shouldSurvey = checkShouldAskSurvey();
@@ -2079,52 +2075,29 @@ function onStall() {
 }
 
 
+// ロゴ5回タップで管理者モード起動
+var _logoTapCount = 0;
+var _logoTapTimer = null;
+function onLogoTap() {
+  _logoTapCount++;
+  if (_logoTapTimer) clearTimeout(_logoTapTimer);
+  _logoTapTimer = setTimeout(function(){ _logoTapCount = 0; }, 2000);
+  if (_logoTapCount >= 5) {
+    _logoTapCount = 0;
+    clearTimeout(_logoTapTimer);
+    showAdminPasswordModal();
+  }
+}
+
 // ============================================================
 // 管理者モード
 // ============================================================
 
-function showAdminPasswordModal() {
-  var overlay = document.createElement("div");
-  overlay.className = "admin-overlay";
-  overlay.id = "admin-overlay";
-  overlay.innerHTML = '<div class="admin-modal">'
-    + '<h3>🔐 管理者ログイン</h3>'
-    + '<p style="font-size:12px;color:#6b7280;text-align:center;margin-bottom:12px;">サクラ整骨院 管理者専用</p>'
-    + '<input type="password" id="admin-pw-inp" placeholder="管理者パスワード" />'
-    + '<p id="admin-pw-err" style="color:#dc2626;font-size:12px;display:none;margin-bottom:8px;">パスワードが違います</p>'
-    + '<div class="mrow">'
-    + '<button class="admin-btn" style="flex:1" onclick="submitAdminPassword()">ログイン</button>'
-    + '<button class="admin-btn gray" style="flex:1" onclick="cancelAdminLogin()">キャンセル</button>'
-    + '</div></div>';
-  document.body.appendChild(overlay);
-  setTimeout(function(){ document.getElementById("admin-pw-inp").focus(); }, 100);
-  document.getElementById("admin-pw-inp").addEventListener("keydown", function(e){
-    if (e.key === "Enter") submitAdminPassword();
-  });
-}
-
-function submitAdminPassword() {
-  var pw = document.getElementById("admin-pw-inp").value;
-  if (pw === ADMIN_PASSWORD) {
-    document.getElementById("admin-overlay").remove();
-    enterAdminMode();
-  } else {
-    var err = document.getElementById("admin-pw-err");
-    err.style.display = "block";
-    document.getElementById("admin-pw-inp").value = "";
-    document.getElementById("admin-pw-inp").focus();
-  }
-}
-
-function cancelAdminLogin() {
-  document.getElementById("admin-overlay").remove();
-  // 管理者ログインをキャンセル→通常ユーザーとして継続
-  addBot("管理者ログインをキャンセルしました。\n通常モードで起動します。");
-  wait(function(){ askPurpose(); }, 600);
-}
-
 function enterAdminMode() {
   isAdmin = true;
+  // 背景色をネイビーブルーに変更
+  document.querySelector(".wrap").style.background = "#0f172a";
+  document.querySelector(".wrap").style.boxShadow = "0 8px 40px rgba(30,64,175,0.4)";
   // ヘッダーを管理者色に変更
   document.querySelector(".header").classList.add("admin-header-bar");
   document.querySelector(".htxt h3") && document.querySelector(".htxt h3").remove();
@@ -2138,6 +2111,7 @@ function enterAdminMode() {
   document.querySelector(".footer").style.display = "none";
   var panel = document.getElementById("admin-panel");
   panel.style.display = "flex";
+  panel.style.background = "#0f172a";
 
   renderAdminPanel();
 }
@@ -2145,13 +2119,18 @@ function enterAdminMode() {
 function exitAdminMode() {
   isAdmin = false;
   adminProxyPatient = null;
+  // 背景色を元に戻す
+  document.querySelector(".wrap").style.background = "white";
+  document.querySelector(".wrap").style.boxShadow = "0 8px 40px rgba(232,131,154,0.2)";
   document.querySelector(".header").classList.remove("admin-header-bar");
   var badge = document.querySelector(".admin-badge");
   if (badge) badge.remove();
   document.getElementById("msgs").style.display = "flex";
   document.querySelector(".footer").style.display = "block";
-  document.getElementById("admin-panel").style.display = "none";
-  document.getElementById("admin-panel").innerHTML = "";
+  var panel = document.getElementById("admin-panel");
+  panel.style.display = "none";
+  panel.style.background = "";
+  panel.innerHTML = "";
   addBot("管理者モードを終了しました 🌸");
   wait(function(){ askPurpose(); }, 600);
 }
@@ -2210,10 +2189,14 @@ function renderAdminPanel() {
 function renderAdminSearch(panel) {
   var sec = document.createElement("div");
   sec.className = "admin-section";
-  sec.innerHTML = '<h4>患者検索（フリガナ or 電話番号）</h4>'
+  sec.innerHTML = '<h4>患者検索</h4>'
     + '<div class="admin-search-row">'
+    + '<input class="admin-inp" id="adm-name" placeholder="氏名（例：山田 太郎）" />'
     + '<input class="admin-inp" id="adm-kana" placeholder="フリガナ（例：ヤマダ タロウ）" />'
+    + '</div>'
+    + '<div class="admin-search-row">'
     + '<input class="admin-inp" id="adm-tel" placeholder="電話番号（ハイフンなし）" />'
+    + '<input class="admin-inp" id="adm-cno" placeholder="顧客番号（例：2513）" />'
     + '</div>'
     + '<button class="admin-btn" onclick="adminSearchPatient()">検索</button>'
     + '<div id="adm-search-result"></div>';
@@ -2221,13 +2204,15 @@ function renderAdminSearch(panel) {
 }
 
 function adminSearchPatient() {
+  var name = document.getElementById("adm-name") ? document.getElementById("adm-name").value.trim() : "";
   var kana = document.getElementById("adm-kana").value.trim();
   var tel  = document.getElementById("adm-tel").value.trim().replace(/-/g,"");
+  var cno  = document.getElementById("adm-cno") ? document.getElementById("adm-cno").value.trim() : "";
   var result = document.getElementById("adm-search-result");
-  if (!kana && !tel) { result.innerHTML = '<p style="color:#dc2626;font-size:13px;margin-top:8px;">フリガナまたは電話番号を入力してください</p>'; return; }
+  if (!name && !kana && !tel && !cno) { result.innerHTML = '<p style="color:#dc2626;font-size:13px;margin-top:8px;">いずれかの項目を入力してください</p>'; return; }
   result.innerHTML = '<p style="font-size:13px;color:#6b7280;margin-top:8px;">検索中...</p>';
 
-  fetch(GAS_URL, { method:"POST", body:JSON.stringify({ token:AUTH_TOKEN, action:"searchPatient", kana:kana, tel:tel }) })
+  fetch(GAS_URL, { method:"POST", body:JSON.stringify({ token:AUTH_TOKEN, action:"searchPatient", name:name, kana:kana, tel:tel, customerNo:cno }) })
   .then(function(r){ return r.json(); })
   .then(function(d){
     if (!d.success || !d.found) {
@@ -2304,10 +2289,14 @@ function submitAdminEdit() {
 function renderAdminReservations(panel) {
   var sec = document.createElement("div");
   sec.className = "admin-section";
-  sec.innerHTML = '<h4>予約一覧（患者名 or 電話番号で絞り込み）</h4>'
+  sec.innerHTML = '<h4>予約一覧</h4>'
     + '<div class="admin-search-row">'
+    + '<input class="admin-inp" id="adm-res-name" placeholder="氏名（例：山田 太郎）" />'
     + '<input class="admin-inp" id="adm-res-kana" placeholder="フリガナ（例：ヤマダ タロウ）" />'
+    + '</div>'
+    + '<div class="admin-search-row">'
     + '<input class="admin-inp" id="adm-res-tel" placeholder="電話番号" />'
+    + '<input class="admin-inp" id="adm-res-cno" placeholder="顧客番号" />'
     + '</div>'
     + '<button class="admin-btn" onclick="adminLoadReservations()">予約を取得</button>'
     + '<div id="adm-res-result" style="margin-top:12px;"></div>';
@@ -2315,14 +2304,15 @@ function renderAdminReservations(panel) {
 }
 
 function adminLoadReservations() {
+  var name = document.getElementById("adm-res-name") ? document.getElementById("adm-res-name").value.trim() : "";
   var kana = document.getElementById("adm-res-kana").value.trim();
   var tel  = document.getElementById("adm-res-tel").value.trim().replace(/-/g,"");
+  var cno  = document.getElementById("adm-res-cno") ? document.getElementById("adm-res-cno").value.trim() : "";
   var result = document.getElementById("adm-res-result");
-  if (!kana && !tel) { result.innerHTML = '<p style="color:#dc2626;font-size:13px;">フリガナまたは電話番号を入力してください</p>'; return; }
+  if (!name && !kana && !tel && !cno) { result.innerHTML = '<p style="color:#dc2626;font-size:13px;">いずれかの項目を入力してください</p>'; return; }
 
-  // まず患者を検索してseiKana+telを確定させてから予約を取得
   result.innerHTML = '<p style="font-size:13px;color:#6b7280;">取得中...</p>';
-  fetch(GAS_URL, { method:"POST", body:JSON.stringify({ token:AUTH_TOKEN, action:"searchPatient", kana:kana, tel:tel }) })
+  fetch(GAS_URL, { method:"POST", body:JSON.stringify({ token:AUTH_TOKEN, action:"searchPatient", name:name, kana:kana, tel:tel, customerNo:cno }) })
   .then(function(r){ return r.json(); })
   .then(function(d){
     if (!d.success || !d.found) {
@@ -2384,8 +2374,12 @@ function renderAdminProxy(panel) {
   if (!adminProxyPatient) {
     sec.innerHTML = '<h4>代理予約する患者を選択</h4>'
       + '<div class="admin-search-row">'
+      + '<input class="admin-inp" id="adm-proxy-name" placeholder="氏名（例：山田 太郎）" />'
       + '<input class="admin-inp" id="adm-proxy-kana" placeholder="フリガナ（例：ヤマダ タロウ）" />'
+      + '</div>'
+      + '<div class="admin-search-row">'
       + '<input class="admin-inp" id="adm-proxy-tel" placeholder="電話番号" />'
+      + '<input class="admin-inp" id="adm-proxy-cno" placeholder="顧客番号" />'
       + '</div>'
       + '<button class="admin-btn" onclick="adminSearchForProxy()">検索</button>'
       + '<div id="adm-proxy-result"></div>';
@@ -2401,13 +2395,15 @@ function renderAdminProxy(panel) {
 }
 
 function adminSearchForProxy() {
+  var name = document.getElementById("adm-proxy-name") ? document.getElementById("adm-proxy-name").value.trim() : "";
   var kana = document.getElementById("adm-proxy-kana").value.trim();
   var tel  = document.getElementById("adm-proxy-tel").value.trim().replace(/-/g,"");
+  var cno  = document.getElementById("adm-proxy-cno") ? document.getElementById("adm-proxy-cno").value.trim() : "";
   var result = document.getElementById("adm-proxy-result");
-  if (!kana && !tel) { result.innerHTML = '<p style="color:#dc2626;font-size:13px;margin-top:8px;">フリガナまたは電話番号を入力してください</p>'; return; }
+  if (!name && !kana && !tel && !cno) { result.innerHTML = '<p style="color:#dc2626;font-size:13px;margin-top:8px;">いずれかの項目を入力してください</p>'; return; }
   result.innerHTML = '<p style="font-size:13px;color:#6b7280;margin-top:8px;">検索中...</p>';
 
-  fetch(GAS_URL, { method:"POST", body:JSON.stringify({ token:AUTH_TOKEN, action:"searchPatient", kana:kana, tel:tel }) })
+  fetch(GAS_URL, { method:"POST", body:JSON.stringify({ token:AUTH_TOKEN, action:"searchPatient", name:name, kana:kana, tel:tel, customerNo:cno }) })
   .then(function(r){ return r.json(); })
   .then(function(d){
     if (!d.success || !d.found) {

@@ -2251,15 +2251,60 @@ function adminSearchPatient() {
       msg.innerHTML = '<span style="color:#f87171;font-size:13px;">患者が見つかりませんでした</span>';
       return;
     }
-    msg.innerHTML = '<span style="color:#059669;font-size:13px;">✅ 見つかりました</span>';
-    _adminFoundPatient = d;
-    _adminReservations = [];
+
+    var patients = d.patients || [d];
     var panel = document.getElementById("admin-panel");
-    renderAdminPatientCard(panel, d);
+
+    if (patients.length === 1) {
+      // 1件→そのまま表示
+      msg.innerHTML = '<span style="color:#059669;font-size:13px;">✅ 1件見つかりました</span>';
+      _adminFoundPatient = patients[0];
+      _adminReservations = [];
+      renderAdminPatientCard(panel, patients[0]);
+    } else {
+      // 複数件→候補リストを表示して選択させる
+      msg.innerHTML = '<span style="color:#059669;font-size:13px;">✅ ' + patients.length + '件見つかりました。選んでください</span>';
+      // 既存カードを削除
+      var old = document.getElementById("adm-patient-card");
+      if (old) old.remove();
+      // 候補リスト描画
+      var list = document.createElement("div");
+      list.id = "adm-patient-card";
+      list.style.cssText = "margin-top:12px;";
+      var html = '<div class="admin-result">';
+      patients.forEach(function(p, i) {
+        var pname = ((p.sei||"") + " " + (p.mei||"")).trim() || p.name || "";
+        var pkana = ((p.seiKana||"") + " " + (p.meiKana||"")).trim();
+        html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #dbeafe;">'
+          + '<div>'
+          + '<div style="font-weight:600;color:#1e40af;font-size:13px;">👤 ' + esc(pname) + '</div>'
+          + '<div style="font-size:11px;color:#6b7280;">' + esc(pkana) + '　No.' + esc(p.customerNo||"") + '　' + esc(p.tel||"") + '</div>'
+          + '</div>'
+          + '<button class="admin-btn" style="padding:6px 12px;font-size:12px;" onclick="adminSelectPatient(' + i + ')">選択</button>'
+          + '</div>';
+      });
+      html += '</div>';
+      list.innerHTML = html;
+      list._patients = patients;
+      panel.appendChild(list);
+    }
   })
   .catch(function(){
     msg.innerHTML = '<span style="color:#f87171;font-size:13px;">通信エラーが発生しました</span>';
   });
+}
+
+function adminSelectPatient(idx) {
+  var card = document.getElementById("adm-patient-card");
+  var patients = card ? card._patients : null;
+  if (!patients || !patients[idx]) return;
+  var p = patients[idx];
+  _adminFoundPatient = p;
+  _adminReservations = [];
+  var panel = document.getElementById("admin-panel");
+  var msg = document.getElementById("adm-search-msg");
+  if (msg) msg.innerHTML = '<span style="color:#059669;font-size:13px;">✅ 選択しました</span>';
+  renderAdminPatientCard(panel, p);
 }
 
 // 予約確認

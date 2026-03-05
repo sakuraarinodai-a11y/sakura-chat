@@ -1477,42 +1477,138 @@ function confirmRegDates() {
   wait(function(){ askRegMenuAndTime(); }, 400);
 }
 
-// ▼ メニュー・時間帯を一括設定
+// ▼ メニュー・時間帯を一括設定（複数メニュー対応）
 function askRegMenuAndTime() {
-  // 患者フロー：_reg.menuが既にセットされていればメニュー選択不要
-  var hasMenu = !!(_reg.menu);
-  _regMenuSel = _reg.menu || null;
-  _regTimeSel = null;
+  _regMenuSel  = null;
+  _regTimeSel  = null;
+  _regMenuList = [];  // 複数メニュー選択用
 
-  addBot("選んだ日程の希望時間帯を設定してください。" + (hasMenu ? "\nメニュー：" + _reg.menu : ""));
+  addBot("日程ごとにメニューと時間帯を設定します。\nまず共通のメニューを選んでください（後から日別に変更できます）。");
   wait(function(){
     var wrap = document.createElement("div");
     wrap.className = "cardwrap";
-
-    var menuHtml = hasMenu ? "" :
-      "<div style=\"margin-bottom:10px;\">" +
-      "<div style=\"font-size:12px;color:#6b7280;margin-bottom:6px;\">メニュー</div>" +
-      "<div id=\"reg-menu-btns\" style=\"display:flex;flex-wrap:wrap;gap:6px;\">" +
-      ["保険診療","自費診療","楽トレ","酸素カプセル"].map(function(m){
-        return "<button class=\"reg-opt-btn\" data-val=\""+m+"\" onclick=\"selectRegOption(this,'menu')\" style=\"padding:6px 12px;border:1.5px solid #bfdbfe;border-radius:8px;background:white;font-size:12px;cursor:pointer;color:#1e40af;\">"+m+"</button>";
-      }).join("") +
-      "</div></div>";
-
-    wrap.innerHTML =
-      "<div class=\"admin-section\">" + menuHtml +
-      "<div style=\"margin-bottom:10px;\">" +
-      "<div style=\"font-size:12px;color:#6b7280;margin-bottom:6px;\">希望時間帯</div>" +
-      "<div id=\"reg-time-btns\" style=\"display:flex;flex-wrap:wrap;gap:6px;\">" +
-      [["午前（8〜12時）","morning"],["昼（12〜15時）","noon"],["夕方（15時以降）","evening"],["どの時間帯でも","any"]].map(function(t){
-        return "<button class=\"reg-opt-btn\" data-val=\""+t[1]+"\" onclick=\"selectRegOption(this,'time')\" style=\"padding:6px 12px;border:1.5px solid #bfdbfe;border-radius:8px;background:white;font-size:12px;cursor:pointer;color:#1e40af;\">"+t[0]+"</button>";
-      }).join("") +
-      "</div></div>" +
-      "<button id=\"reg-confirm-btn\" onclick=\"confirmRegSettings()\" style=\"width:100%;padding:10px;background:#1e40af;color:white;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;opacity:0.4;pointer-events:none;\">空き状況を確認する</button>" +
-      "</div>";
+    wrap.innerHTML = buildRegMenuUI();
     document.getElementById("msgs").appendChild(wrap);
     scrollB();
   }, 400);
 }
+
+function buildRegMenuUI() {
+  return '<div class="admin-section" id="reg-menu-ui">' +
+    // ① 施術
+    '<div class="reg-category" id="cat-shijutsu">' +
+    '<label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:#1e40af;cursor:pointer;">' +
+    '<input type="checkbox" id="chk-shijutsu" onchange="toggleRegCategory(this,\'shijutsu\')" style="width:16px;height:16px;cursor:pointer;">施術</label>' +
+    '<div id="sub-shijutsu" style="display:none;margin:8px 0 0 22px;display:flex;flex-wrap:wrap;gap:6px;">' +
+    ['施術5分','施術15分','施術30分','施術60分','施術75分'].map(function(m){
+      return '<button class="reg-sub-btn" data-group="shijutsu" data-val="'+m+'" onclick="selectRegSub(this)" style="padding:5px 10px;border:1.5px solid #bfdbfe;border-radius:8px;background:white;font-size:12px;cursor:pointer;color:#1e40af;">'+m+'</button>';
+    }).join('') + '</div></div>' +
+    // ② 楽トレ
+    '<div class="reg-category" style="margin-top:8px;">' +
+    '<label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:#1e40af;cursor:pointer;">' +
+    '<input type="checkbox" id="chk-rakukan" onchange="toggleRegCategory(this,\'rakukan\')" style="width:16px;height:16px;cursor:pointer;">楽トレ</label>' +
+    '</div>' +
+    // ③ 酸素カプセル
+    '<div class="reg-category" style="margin-top:8px;">' +
+    '<label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:#1e40af;cursor:pointer;">' +
+    '<input type="checkbox" id="chk-oxygen" onchange="toggleRegCategory(this,\'oxygen\')" style="width:16px;height:16px;cursor:pointer;">酸素カプセル</label>' +
+    '</div>' +
+    // ④ ジム利用
+    '<div class="reg-category" id="cat-gym" style="margin-top:8px;">' +
+    '<label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:#1e40af;cursor:pointer;">' +
+    '<input type="checkbox" id="chk-gym" onchange="toggleRegCategory(this,\'gym\')" style="width:16px;height:16px;cursor:pointer;">ジム利用</label>' +
+    '<div id="sub-gym" style="display:none;margin:8px 0 0 22px;">' +
+    '<div style="font-size:11px;color:#6b7280;margin-bottom:4px;">セルフ</div>' +
+    '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;">' +
+    ['セルフトレーニング15分','セルフトレーニング30分'].map(function(m){
+      var lbl = m.replace('セルフトレーニング','');
+      return '<button class="reg-sub-btn" data-group="gym" data-val="'+m+'" onclick="selectRegSub(this)" style="padding:5px 10px;border:1.5px solid #bfdbfe;border-radius:8px;background:white;font-size:12px;cursor:pointer;color:#1e40af;">'+lbl+'</button>';
+    }).join('') +
+    '</div>' +
+    '<div style="font-size:11px;color:#6b7280;margin-bottom:4px;">マンツーマン</div>' +
+    '<div style="display:flex;flex-wrap:wrap;gap:6px;">' +
+    ['マンツーマントレーニング15分','マンツーマントレーニング30分','マンツーマントレーニング60分'].map(function(m){
+      var lbl = m.replace('マンツーマントレーニング','');
+      return '<button class="reg-sub-btn" data-group="gym" data-val="'+m+'" onclick="selectRegSub(this)" style="padding:5px 10px;border:1.5px solid #bfdbfe;border-radius:8px;background:white;font-size:12px;cursor:pointer;color:#1e40af;">'+lbl+'</button>';
+    }).join('') +
+    '</div></div></div>' +
+    // ⑤ 交通事故
+    '<div class="reg-category" id="cat-jiko" style="margin-top:8px;">' +
+    '<label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:#1e40af;cursor:pointer;">' +
+    '<input type="checkbox" id="chk-jiko" onchange="toggleRegCategory(this,\'jiko\')" style="width:16px;height:16px;cursor:pointer;">交通事故</label>' +
+    '<div id="sub-jiko" style="display:none;margin:8px 0 0 22px;display:flex;flex-wrap:wrap;gap:6px;">' +
+    ['交通事故治療','交通事故無料相談'].map(function(m){
+      return '<button class="reg-sub-btn" data-group="jiko" data-val="'+m+'" onclick="selectRegSub(this)" style="padding:5px 10px;border:1.5px solid #bfdbfe;border-radius:8px;background:white;font-size:12px;cursor:pointer;color:#1e40af;">'+m+'</button>';
+    }).join('') + '</div></div>' +
+    // 選択済み表示
+    '<div id="reg-selected-menus" style="margin-top:12px;min-height:24px;"></div>' +
+    // 時間帯
+    '<div style="margin-top:12px;border-top:1px solid #dbeafe;padding-top:10px;">' +
+    '<div style="font-size:12px;color:#6b7280;margin-bottom:6px;">希望時間帯（全日程共通）</div>' +
+    '<div id="reg-time-btns" style="display:flex;flex-wrap:wrap;gap:6px;">' +
+    [['午前（8〜12時）','morning'],['昼（12〜15時）','noon'],['夕方（15時以降）','evening'],['どの時間帯でも','any']].map(function(t){
+      return '<button class="reg-opt-btn" data-val="'+t[1]+'" onclick="selectRegOption(this,\'time\')" style="padding:6px 12px;border:1.5px solid #bfdbfe;border-radius:8px;background:white;font-size:12px;cursor:pointer;color:#1e40af;">'+t[0]+'</button>';
+    }).join('') +
+    '</div></div>' +
+    '<button id="reg-confirm-btn" onclick="confirmRegSettings()" style="width:100%;padding:10px;background:#1e40af;color:white;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;opacity:0.4;pointer-events:none;margin-top:12px;">空き状況を確認する</button>' +
+    '</div>';
+}
+
+var _regMenuList = [];  // [{menu:"施術30分", label:"施術30分"}, ...]
+
+function toggleRegCategory(chk, group) {
+  var subDiv = document.getElementById('sub-' + group);
+  if (subDiv) subDiv.style.display = chk.checked ? 'flex' : 'none';
+
+  // チェック外したらそのグループのメニューを解除
+  if (!chk.checked) {
+    _regMenuList = _regMenuList.filter(function(m){ return m.group !== group; });
+    // サブボタンもリセット
+    if (subDiv) subDiv.querySelectorAll('.reg-sub-btn').forEach(function(b){
+      b.style.background='white'; b.style.color='#1e40af'; b.style.fontWeight='normal';
+    });
+    // サブなしカテゴリ（楽トレ・酸素）
+    if (group === 'rakukan') _regMenuList = _regMenuList.filter(function(m){ return m.val !== '楽トレ'; });
+    if (group === 'oxygen')  _regMenuList = _regMenuList.filter(function(m){ return m.val !== '酸素カプセル'; });
+  } else {
+    // サブなしカテゴリは即追加
+    if (group === 'rakukan') { _regMenuList.push({group:'rakukan', val:'楽トレ', label:'楽トレ'}); }
+    if (group === 'oxygen')  { _regMenuList.push({group:'oxygen',  val:'酸素カプセル', label:'酸素カプセル'}); }
+  }
+  updateRegMenuDisplay();
+}
+
+function selectRegSub(btn) {
+  var group = btn.getAttribute('data-group');
+  var val   = btn.getAttribute('data-val');
+  // 同グループは1つのみ（ただし楽トレ・酸素はサブなし）
+  document.querySelectorAll('.reg-sub-btn[data-group="'+group+'"]').forEach(function(b){
+    b.style.background='white'; b.style.color='#1e40af'; b.style.fontWeight='normal';
+  });
+  btn.style.background='#1e40af'; btn.style.color='white'; btn.style.fontWeight='600';
+  _regMenuList = _regMenuList.filter(function(m){ return m.group !== group; });
+  _regMenuList.push({group:group, val:val, label:val});
+  updateRegMenuDisplay();
+}
+
+function updateRegMenuDisplay() {
+  var el = document.getElementById('reg-selected-menus');
+  if (!el) return;
+  if (_regMenuList.length === 0) {
+    el.innerHTML = '';
+  } else {
+    el.innerHTML = '<div style="font-size:12px;color:#059669;font-weight:600;">✅ 選択中：' +
+      _regMenuList.map(function(m){ return m.label; }).join(' ＋ ') + '</div>';
+  }
+  // 確定ボタン有効化チェック
+  var confirmBtn = document.getElementById('reg-confirm-btn');
+  if (confirmBtn) {
+    var ok = _regMenuList.length > 0 && _regTimeSel;
+    confirmBtn.style.opacity = ok ? '1' : '0.4';
+    confirmBtn.style.pointerEvents = ok ? 'auto' : 'none';
+  }
+}
+
 
 var _regMenuSel = null;
 var _regTimeSel = null;
@@ -1536,28 +1632,35 @@ function selectRegOption(btn, type) {
 }
 
 function confirmRegSettings() {
-  if (!_regMenuSel || !_regTimeSel) return;
-  _reg.menu     = _regMenuSel;
+  if (_regMenuList.length === 0 || !_regTimeSel) return;
+  _reg.menus    = _regMenuList.map(function(m){ return m.val; }); // 複数メニュー
+  _reg.menu     = _reg.menus[0]; // 後方互換
   _reg.timeZone = _regTimeSel;
   _reg.targets  = _regCalDates.slice().sort();
+  // 日別メニュー設定（後から個別変更用）
+  _reg.dateMenus = {};
+  _reg.targets.forEach(function(d){ _reg.dateMenus[d] = _reg.menus.slice(); });
 
   // ボタン無効化
-  var wrap = document.getElementById('reg-confirm-btn');
-  if (wrap) { wrap.style.pointerEvents='none'; wrap.style.opacity='0.6'; }
+  var btn = document.getElementById('reg-confirm-btn');
+  if (btn) { btn.style.pointerEvents='none'; btn.style.opacity='0.6'; }
 
   var tzLabel = {morning:'午前',noon:'昼',evening:'夕方',any:'どの時間帯でも'}[_reg.timeZone] || _reg.timeZone;
-  addUser(_regMenuSel + '・' + tzLabel);
+  var menuLabel = _regMenuList.map(function(m){ return m.label; }).join(' ＋ ');
+  addUser(menuLabel + '・' + tzLabel);
   addBot(_reg.targets.length + "日分の空き枠を確認しています... ⏳");
   showTyping();
 
-  // 全日程の空き枠を一括取得
+  // 全日程・全メニューの空き枠を一括取得
+  // 複数メニューがある場合は最初のメニューで代表して空き確認
   _regSlotMap = {};
   var promises = _reg.targets.map(function(dateStr){
+    var menu0 = (_reg.dateMenus[dateStr] || _reg.menus)[0];
     return fetch(GAS_URL, { method:"POST", body:JSON.stringify({
       token: AUTH_TOKEN,
       action: "getSuggestedSlotsByTimeZone",
       date: dateStr,
-      menu: _reg.menu,
+      menu: menu0,
       timeZone: _reg.timeZone,
     })})
     .then(function(r){ return r.json(); })
@@ -1578,21 +1681,26 @@ function showRegSlotList() {
   var dows = ["日","月","火","水","木","金","土"];
   var sorted = _reg.targets;
 
-  var html = '<div class="admin-section"><h4 style="color:#1e40af;margin-bottom:12px;">📋 空き状況</h4>';
+  var html = '<div class="admin-section"><h4 style="color:#1e40af;margin-bottom:12px;">📋 空き状況・時間選択</h4>';
   sorted.forEach(function(dateStr){
     var sd = new Date(dateStr+"T00:00:00");
     var dw = dows[sd.getDay()];
     var label = (sd.getMonth()+1)+"月"+sd.getDate()+"日（"+dw+"）";
     var slots = _regSlotMap[dateStr] || [];
+    var dayMenus = (_reg.dateMenus && _reg.dateMenus[dateStr]) || _reg.menus || [_reg.menu];
+    var menuBadge = dayMenus.join(' ＋ ');
 
-    html += '<div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid #dbeafe;">'
-      + '<div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:6px;">'+label+'</div>';
+    html += '<div style="margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid #dbeafe;" id="day-row-'+dateStr+'">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">'
+      + '<div style="font-size:13px;font-weight:700;color:#1e40af;">'+label+'</div>'
+      + '<button onclick="changeRegDayMenu(&apos;'+dateStr+'&apos;)" style="font-size:11px;padding:3px 8px;border:1px solid #bfdbfe;border-radius:6px;background:#eff6ff;color:#1e40af;cursor:pointer;">✏️ メニュー変更</button>'
+      + '</div>'
+      + '<div id="day-menu-badge-'+dateStr+'" style="font-size:11px;color:#059669;margin-bottom:6px;">📋 '+menuBadge+'</div>';
 
     if (slots.length === 0) {
-      html += '<div style="font-size:12px;color:#ef4444;">空き枠なし — この日はスキップされます</div>'
-        + '<button onclick="changeRegDayTimeZone(\''+dateStr+'\')" style="margin-top:6px;font-size:11px;padding:4px 10px;border:1px solid #bfdbfe;border-radius:6px;background:white;color:#6b7280;cursor:pointer;">⏱ 時間帯を変えて再検索</button>';
+      html += '<div style="font-size:12px;color:#ef4444;">空き枠なし</div>'
+        + '<button onclick="changeRegDayTimeZone(&apos;'+dateStr+'&apos;)" style="margin-top:6px;font-size:11px;padding:4px 10px;border:1px solid #bfdbfe;border-radius:6px;background:white;color:#6b7280;cursor:pointer;">⏱ 時間帯を変えて再検索</button>';
     } else {
-      // 最大3候補表示
       var top = slots.slice(0,3);
       html += '<div style="display:flex;flex-wrap:wrap;gap:6px;" id="slots-'+dateStr+'">';
       top.forEach(function(t){
@@ -1600,7 +1708,7 @@ function showRegSlotList() {
           + 'style="padding:6px 14px;border:1.5px solid #bfdbfe;border-radius:8px;background:white;font-size:13px;cursor:pointer;color:#1e40af;">'+t+'</button>';
       });
       html += '</div>'
-        + '<button onclick="changeRegDayTimeZone(\''+dateStr+'\')" style="margin-top:6px;font-size:11px;padding:4px 10px;border:1px solid #bfdbfe;border-radius:6px;background:white;color:#6b7280;cursor:pointer;">⏱ 個別に時間帯を変更</button>';
+        + '<button onclick="changeRegDayTimeZone(&apos;'+dateStr+'&apos;)" style="margin-top:6px;font-size:11px;padding:4px 10px;border:1px solid #bfdbfe;border-radius:6px;background:white;color:#6b7280;cursor:pointer;">⏱ 個別に時間帯を変更</button>';
     }
     html += '</div>';
   });
@@ -1613,8 +1721,62 @@ function showRegSlotList() {
   wrap.innerHTML = html;
   document.getElementById("msgs").appendChild(wrap);
   scrollB();
-  addBot("時間を選んで「予約を確定する」を押してください。空き枠のない日はスキップされます。");
+  addBot("各日の時間を選んで「予約を確定する」を押してください。\n✏️ メニュー変更で日別のメニューも変えられます。");
 }
+
+// ▼ 日別メニュー変更
+function changeRegDayMenu(dateStr) {
+  var sd = new Date(dateStr+"T00:00:00");
+  var dw = ["日","月","火","水","木","金","土"][sd.getDay()];
+  var label = (sd.getMonth()+1)+"月"+sd.getDate()+"日（"+dw+"）";
+  addBot(label + " のメニューを変更します。");
+  wait(function(){
+    // 全メニュー選択肢を出す
+    var allMenus = ["施術5分","施術15分","施術30分","施術60分","施術75分","楽トレ","酸素カプセル",
+      "セルフトレーニング15分","セルフトレーニング30分",
+      "マンツーマントレーニング15分","マンツーマントレーニング30分","マンツーマントレーニング60分",
+      "交通事故治療","交通事故無料相談"];
+    showChoices(allMenus.map(function(m){ return {label:m, val:m}; }), function(v){
+      if (!_reg.dateMenus) _reg.dateMenus = {};
+      _reg.dateMenus[dateStr] = [v];
+      // バッジ更新
+      var badge = document.getElementById("day-menu-badge-"+dateStr);
+      if (badge) badge.textContent = "📋 " + v + "（変更済み）";
+      // 空き枠を再取得
+      showTyping();
+      fetch(GAS_URL, { method:"POST", body:JSON.stringify({
+        token: AUTH_TOKEN, action: "getSuggestedSlotsByTimeZone",
+        date: dateStr, menu: v, timeZone: _reg.timeZone,
+      })})
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        removeTyping();
+        _regSlotMap[dateStr] = (d.success && d.slots && d.slots.length > 0) ? d.slots : [];
+        delete _regChosenSlots[dateStr];
+        var slotDiv = document.getElementById("slots-"+dateStr);
+        if (slotDiv) {
+          if (_regSlotMap[dateStr].length === 0) {
+            slotDiv.innerHTML = '<div style="font-size:12px;color:#ef4444;">空き枠なし</div>';
+          } else {
+            slotDiv.innerHTML = '';
+            _regSlotMap[dateStr].slice(0,3).forEach(function(t){
+              var b = document.createElement("button");
+              b.className = "reg-slot-btn";
+              b.setAttribute("data-date", dateStr);
+              b.setAttribute("data-time", t);
+              b.onclick = function(){ selectRegSlot(b); };
+              b.style.cssText = "padding:6px 14px;border:1.5px solid #bfdbfe;border-radius:8px;background:white;font-size:13px;cursor:pointer;color:#1e40af;";
+              b.textContent = t;
+              slotDiv.appendChild(b);
+            });
+          }
+        }
+      })
+      .catch(function(){ removeTyping(); });
+    });
+  }, 400);
+}
+
 
 function selectRegSlot(btn) {
   var dateStr = btn.getAttribute('data-date');
@@ -1717,12 +1879,16 @@ function processNextRegBook() {
   var dateStr = _reg.bookTargets[_reg.currentIdx];
   var timeStr = _regChosenSlots[dateStr];
 
+  // 日別メニュー（変更済みの場合はそちらを優先）
+  var dayMenuArr = (_reg.dateMenus && _reg.dateMenus[dateStr]) || _reg.menus || [_reg.menu];
+  var dayMenu = dayMenuArr[0];
+
   fetch(GAS_URL, { method:"POST", body:JSON.stringify({
     action:"makeReservation",
     token: AUTH_TOKEN,
     date: dateStr,
     time: timeStr,
-    menu: _reg.menu,
+    menu: dayMenu,
     sei: _reg.sei, mei: _reg.mei,
     seiKana: _reg.seiKana, meiKana: _reg.meiKana,
     tel: _reg.tel,
@@ -1753,7 +1919,8 @@ function showRegSummary() {
     var html2 = '<div class="card"><h3>📅 定期予約まとめ</h3>';
     ok.forEach(function(r){
       var sd = new Date(r.date+"T00:00:00");
-      html2 += '<div class="row"><span class="lbl">✅</span><span>'+(sd.getMonth()+1)+'月'+sd.getDate()+'日（'+dows[sd.getDay()]+'） '+r.time+'</span></div>';
+      var dm = (_reg.dateMenus && _reg.dateMenus[r.date]) ? _reg.dateMenus[r.date].join('＋') : (_reg.menus||[_reg.menu]).join('＋');
+      html2 += '<div class="row"><span class="lbl">✅</span><span>'+(sd.getMonth()+1)+'月'+sd.getDate()+'日（'+dows[sd.getDay()]+'） '+r.time+' 【'+dm+'】</span></div>';
     });
     if (skipped.length > 0) {
       html2 += '<div class="row"><span class="lbl" style="color:#f59e0b;">⏭️ 空きなし</span><span>';

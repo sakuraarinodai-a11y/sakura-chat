@@ -918,6 +918,12 @@ function onWhoSelect(val) {
 // ファミリー同行確認
 // ============================================================
 function askFamilyTogether() {
+  // 管理者が「家族と一緒」を選んだ場合は強制的に同行者追加フローへ
+  if (reserv._forceFamily) {
+    reserv._forceFamily = false;
+    wait(function(){ addCompanion(function(){ wait(function(){ askDate(); }, 400); }); }, 400);
+    return;
+  }
   // family登録がない場合はスキップ
   if (!family || family.length === 0) {
     wait(function(){ askDate(); }, 400);
@@ -2470,9 +2476,40 @@ function startProxyChat() {
     + '<button onclick="returnToAdminPanel()">管理画面に戻る</button>';
   document.getElementById("msgs").before(banner);
 
-  // 通常のリピーターフローと同じ入り口から開始
-  addBot("【代理操作】" + adminProxyPatient.name + " さんとしてログインしました 🌸");
-  wait(function(){ onPurpose("reserve"); }, 600);
+  // 代理操作用予約メニューから開始
+  addBot("【代理操作】" + adminProxyPatient.name + " さんの予約を行います 🌸");
+  wait(function(){ askProxyReservationType(); }, 600);
+}
+
+function askProxyReservationType() {
+  // reservに患者情報をセット
+  reserv = {};
+  reserv.sei = patient.sei||""; reserv.mei = patient.mei||"";
+  reserv.seiKana = patient.seiKana||""; reserv.meiKana = patient.meiKana||"";
+  reserv.tel = patient.tel||"";
+  reserv.whoConfirmed = true;
+  reserv.purpose = "reserve";
+
+  addBot("どのように予約しますか？");
+  wait(function(){
+    showChoices([
+      { label:"📅 通常予約",                   val:"normal"  },
+      { label:"👨‍👩‍👧 家族・同伴者も一緒に予約",   val:"family"  },
+      { label:"📆 定期予約（まとめて複数回）",  val:"regular" },
+    ], function(v){
+      if (v === "normal") {
+        // 過去予約チェック→メニュー→日時
+        wait(function(){ checkPastReservations(); }, 400);
+      } else if (v === "family") {
+        // 家族同行フラグをセット → askFamilyTogetherで必ず同行確認画面を出す
+        reserv._forceFamily = true;
+        wait(function(){ checkPastReservations(); }, 400);
+      } else if (v === "regular") {
+        // メニュー選択→日時→定期設定
+        wait(function(){ askPurposeOnly(); }, 400);
+      }
+    });
+  }, 600);
 }
 
 function returnToAdminPanel() {

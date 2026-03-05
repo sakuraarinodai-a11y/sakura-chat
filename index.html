@@ -92,13 +92,13 @@
   /* 管理者モード */
   .admin-badge { background:#1e40af; color:white; font-size:11px; padding:2px 10px; border-radius:10px; margin-left:8px; vertical-align:middle; letter-spacing:0.5px; }
   .admin-header-bar { background:linear-gradient(135deg,#1e3a8a,#1e40af); }
-  .admin-panel { padding:12px 16px; background:#0f172a; }
+  .admin-panel { padding:12px 16px; background:#f0f4ff; }
   .admin-section { margin-bottom:16px; }
-  .admin-section h4 { font-size:13px; font-weight:700; color:#93c5fd; margin-bottom:8px; padding-bottom:4px; border-bottom:2px solid #1e3a8a; }
+  .admin-section h4 { font-size:13px; font-weight:700; color:#1e40af; margin-bottom:8px; padding-bottom:4px; border-bottom:2px solid #bfdbfe; }
   .admin-search-row { display:flex; gap:8px; margin-bottom:8px; }
-  .admin-inp { flex:1; border:1.5px solid #1e3a8a; border-radius:10px; padding:8px 12px; font-size:13px; font-family:inherit; outline:none; background:#1e293b; color:#e2e8f0; }
-  .admin-inp::placeholder { color:#64748b; }
-  .admin-inp:focus { border-color:#3b82f6; }
+  .admin-inp { flex:1; border:1.5px solid #bfdbfe; border-radius:10px; padding:8px 12px; font-size:13px; font-family:inherit; outline:none; background:white; color:#1f2937; }
+  .admin-inp::placeholder { color:#9ca3af; }
+  .admin-inp:focus { border-color:#1e40af; }
   .admin-btn { padding:8px 14px; background:#1e40af; color:white; border:none; border-radius:10px; font-size:13px; cursor:pointer; white-space:nowrap; }
   .admin-btn:hover { background:#1e3a8a; }
   .admin-btn.red { background:#dc2626; }
@@ -107,12 +107,12 @@
   .admin-btn.green:hover { background:#047857; }
   .admin-btn.gray { background:#6b7280; }
   .admin-btn.gray:hover { background:#4b5563; }
-  .admin-result { background:#1e293b; border:1px solid #1e3a8a; border-radius:10px; padding:12px; font-size:13px; margin-top:8px; color:#e2e8f0; }
-  .admin-result .arow { display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid #1e3a8a; }
+  .admin-result { background:white; border:1px solid #bfdbfe; border-radius:10px; padding:12px; font-size:13px; margin-top:8px; color:#1f2937; }
+  .admin-result .arow { display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid #dbeafe; }
   .admin-result .arow:last-of-type { border-bottom:none; }
-  .admin-result .albl { color:#94a3b8; font-size:12px; }
+  .admin-result .albl { color:#6b7280; font-size:12px; }
   .admin-tab-row { display:flex; gap:6px; margin-bottom:12px; flex-wrap:wrap; }
-  .admin-tab { padding:6px 14px; border:1.5px solid #1e3a8a; border-radius:20px; font-size:12px; color:#93c5fd; cursor:pointer; background:#1e293b; }
+  .admin-tab { padding:6px 14px; border:1.5px solid #bfdbfe; border-radius:20px; font-size:12px; color:#1e40af; cursor:pointer; background:white; }
   .admin-tab.active { background:#1e40af; color:white; border-color:#1e40af; }
   .admin-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:100; display:flex; align-items:center; justify-content:center; }
   .admin-modal { background:white; border-radius:16px; padding:24px; width:320px; box-shadow:0 8px 40px rgba(0,0,0,0.2); }
@@ -129,7 +129,7 @@
   <div class="header">
     <div class="hicon" id="hicon-logo" onclick="onLogoTap()" style="cursor:pointer;user-select:none;">🌸</div>
     <div class="htxt"><h1>サクラ整骨院</h1><p>AI予約アシスタント</p></div>
-    <div class="hstatus"><div class="dot"></div>受付中 <span id="admin-panel-btn" style="display:none;cursor:pointer;margin-left:6px;" onclick="showAdminPanel()">🛠</span></div>
+    <div class="hstatus"><div class="dot"></div>受付中 <span id="admin-panel-btn" style="display:none;cursor:pointer;margin-left:6px;" onclick="renderAdminPanel()">🛠</span></div>
     <button onclick="hardRestart()" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);color:white;font-size:11px;padding:5px 10px;border-radius:12px;cursor:pointer;white-space:nowrap;flex-shrink:0;">🔄 最初から</button>
   </div>
   <div class="msgs" id="msgs"></div>
@@ -2096,8 +2096,8 @@ function onLogoTap() {
 function enterAdminMode() {
   isAdmin = true;
   // 背景色をネイビーブルーに変更
-  document.querySelector(".wrap").style.background = "#0f172a";
-  document.querySelector(".wrap").style.boxShadow = "0 8px 40px rgba(30,64,175,0.4)";
+  document.querySelector(".wrap").style.background = "#f0f4ff";
+  document.querySelector(".wrap").style.boxShadow = "0 8px 40px rgba(30,64,175,0.2)";
   // ヘッダーを管理者色に変更
   document.querySelector(".header").classList.add("admin-header-bar");
   document.querySelector(".htxt h3") && document.querySelector(".htxt h3").remove();
@@ -2111,7 +2111,7 @@ function enterAdminMode() {
   document.querySelector(".footer").style.display = "none";
   var panel = document.getElementById("admin-panel");
   panel.style.display = "flex";
-  panel.style.background = "#0f172a";
+  panel.style.background = "#f0f4ff";
 
   renderAdminPanel();
 }
@@ -2136,125 +2136,223 @@ function exitAdminMode() {
 }
 
 // ============================================================
-// 管理パネル描画
+// 管理パネル描画（一本道フロー版）
 // ============================================================
-var _adminTab = "search"; // search / proxy / reservations
+// 状態管理
+var _adminFoundPatient = null;  // 検索済み患者
+var _adminReservations = [];    // 取得済み予約一覧
 
 function renderAdminPanel() {
   var panel = document.getElementById("admin-panel");
   panel.innerHTML = "";
+  panel.style.background = "#f0f4ff";
 
-  // タブ
-  var tabRow = document.createElement("div");
-  tabRow.className = "admin-tab-row";
-  var tabs = [
-    { key:"search",       label:"🔍 患者検索" },
-    { key:"reservations", label:"📅 予約一覧" },
-    { key:"proxy",        label:"👤 代理予約" },
-  ];
-  tabs.forEach(function(t){
-    var btn = document.createElement("button");
-    btn.className = "admin-tab" + (_adminTab === t.key ? " active" : "");
-    btn.textContent = t.label;
-    btn.onclick = function(){ _adminTab = t.key; renderAdminPanel(); };
-    tabRow.appendChild(btn);
-  });
-
-  // 退出ボタン
+  // ── ヘッダーバー ──
+  var header = document.createElement("div");
+  header.style.cssText = "display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #bfdbfe;";
+  header.innerHTML = '<span style="color:#1e40af;font-size:14px;font-weight:700;">🛠 管理者パネル</span>';
   var exitBtn = document.createElement("button");
   exitBtn.className = "admin-btn red";
-  exitBtn.style.marginLeft = "auto";
-  exitBtn.textContent = "管理者終了";
+  exitBtn.style.padding = "6px 12px";
+  exitBtn.textContent = "終了";
   exitBtn.onclick = exitAdminMode;
-  tabRow.appendChild(exitBtn);
-  panel.appendChild(tabRow);
+  header.appendChild(exitBtn);
+  panel.appendChild(header);
 
-  // 代理操作中バー
-  if (adminProxyPatient) {
-    var bar = document.createElement("div");
-    bar.className = "admin-proxy-bar";
-    bar.innerHTML = '⚠️ 代理操作中：<strong>' + esc(adminProxyPatient.name) + '</strong> さん（' + esc(adminProxyPatient.tel||"") + '）'
-      + '<button onclick="clearProxyPatient()">解除</button>';
-    panel.appendChild(bar);
+  // ── Step1: 患者検索フォーム（常に表示・検索後も残す） ──
+  var searchSec = document.createElement("div");
+  searchSec.className = "admin-section";
+  searchSec.id = "adm-search-sec";
+  searchSec.innerHTML =
+    '<h4>🔍 患者検索</h4>'
+    + '<div class="admin-search-row">'
+    +   '<input class="admin-inp" id="adm-name" placeholder="氏名（山田 太郎）" />'
+    +   '<input class="admin-inp" id="adm-kana" placeholder="フリガナ（ヤマダ タロウ）" />'
+    + '</div>'
+    + '<div class="admin-search-row">'
+    +   '<input class="admin-inp" id="adm-tel" placeholder="電話番号（ハイフンなし）" />'
+    +   '<input class="admin-inp" id="adm-cno" placeholder="顧客番号" />'
+    + '</div>'
+    + '<button class="admin-btn" style="width:100%;padding:10px;" onclick="adminSearchPatient()">検索</button>'
+    + '<div id="adm-search-msg" style="margin-top:8px;min-height:20px;"></div>';
+  panel.appendChild(searchSec);
+
+  // ── Step2: 患者カード（検索済みなら表示） ──
+  if (_adminFoundPatient) {
+    renderAdminPatientCard(panel, _adminFoundPatient);
   }
-
-  if (_adminTab === "search")        renderAdminSearch(panel);
-  else if (_adminTab === "reservations") renderAdminReservations(panel);
-  else if (_adminTab === "proxy")    renderAdminProxy(panel);
 }
 
-// ============================================================
-// タブ①：患者検索・編集
-// ============================================================
-function renderAdminSearch(panel) {
-  var sec = document.createElement("div");
-  sec.className = "admin-section";
-  sec.innerHTML = '<h4>患者検索</h4>'
-    + '<div class="admin-search-row">'
-    + '<input class="admin-inp" id="adm-name" placeholder="氏名（例：山田 太郎）" />'
-    + '<input class="admin-inp" id="adm-kana" placeholder="フリガナ（例：ヤマダ タロウ）" />'
+// 患者カード＋操作メニュー
+function renderAdminPatientCard(panel, d) {
+  // 既存カードを削除
+  var old = document.getElementById("adm-patient-card");
+  if (old) old.remove();
+
+  var card = document.createElement("div");
+  card.id = "adm-patient-card";
+  card.style.cssText = "margin-top:12px;";
+
+  var name = ((d.sei||"") + " " + (d.mei||"")).trim() || d.name || "";
+  var kana = ((d.seiKana||"") + " " + (d.meiKana||"")).trim();
+
+  card.innerHTML =
+    // 患者情報カード
+    '<div class="admin-result" style="margin-bottom:12px;">'
+    +   '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">'
+    +     '<span style="font-size:15px;font-weight:700;color:#e2e8f0;">👤 ' + esc(name) + '</span>'
+    +     '<span style="font-size:11px;color:#6b7280;">No.' + esc(d.customerNo||"") + '</span>'
+    +   '</div>'
+    +   '<div class="arow"><span class="albl">フリガナ</span><span>' + esc(kana) + '</span></div>'
+    +   '<div class="arow"><span class="albl">電話番号</span><span>' + esc(d.tel||"") + '</span></div>'
     + '</div>'
-    + '<div class="admin-search-row">'
-    + '<input class="admin-inp" id="adm-tel" placeholder="電話番号（ハイフンなし）" />'
-    + '<input class="admin-inp" id="adm-cno" placeholder="顧客番号（例：2513）" />'
+    // 操作ボタン
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">'
+    +   '<button class="admin-btn green" style="padding:12px 8px;font-size:13px;" onclick="adminStartProxy()">📅 代理予約</button>'
+    +   '<button class="admin-btn" style="padding:12px 8px;font-size:13px;" onclick="adminShowReservations()">📋 予約確認</button>'
+    +   '<button class="admin-btn gray" style="padding:12px 8px;font-size:13px;" onclick="adminShowEditForm()">✏️ 情報編集</button>'
+    +   '<button class="admin-btn" style="padding:12px 8px;font-size:13px;background:#7c3aed;" onclick="adminClearPatient()">🔄 別の患者</button>'
     + '</div>'
-    + '<button class="admin-btn" onclick="adminSearchPatient()">検索</button>'
-    + '<div id="adm-search-result"></div>';
-  panel.appendChild(sec);
+    // 操作エリア（動的に切り替わる）
+    + '<div id="adm-action-area"></div>';
+
+  panel.appendChild(card);
 }
 
+// 患者をリセットして再検索
+function adminClearPatient() {
+  _adminFoundPatient = null;
+  _adminReservations = [];
+  renderAdminPanel();
+}
+
+// 患者検索
 function adminSearchPatient() {
-  var name = document.getElementById("adm-name") ? document.getElementById("adm-name").value.trim() : "";
-  var kana = document.getElementById("adm-kana").value.trim();
-  var tel  = document.getElementById("adm-tel").value.trim().replace(/-/g,"");
-  var cno  = document.getElementById("adm-cno") ? document.getElementById("adm-cno").value.trim() : "";
-  var result = document.getElementById("adm-search-result");
-  if (!name && !kana && !tel && !cno) { result.innerHTML = '<p style="color:#dc2626;font-size:13px;margin-top:8px;">いずれかの項目を入力してください</p>'; return; }
-  result.innerHTML = '<p style="font-size:13px;color:#6b7280;margin-top:8px;">検索中...</p>';
+  var name = (document.getElementById("adm-name")||{}).value||"";
+  var kana = (document.getElementById("adm-kana")||{}).value||"";
+  var tel  = (document.getElementById("adm-tel")||{}).value||"";
+  var cno  = (document.getElementById("adm-cno")||{}).value||"";
+  name = name.trim(); kana = kana.trim();
+  tel = tel.trim().replace(/-/g,""); cno = cno.trim();
 
-  fetch(GAS_URL, { method:"POST", body:JSON.stringify({ token:AUTH_TOKEN, action:"searchPatient", name:name, kana:kana, tel:tel, customerNo:cno }) })
+  var msg = document.getElementById("adm-search-msg");
+  if (!name && !kana && !tel && !cno) {
+    msg.innerHTML = '<span style="color:#f87171;font-size:13px;">いずれかの項目を入力してください</span>';
+    return;
+  }
+  msg.innerHTML = '<span style="color:#6b7280;font-size:13px;">検索中...</span>';
+
+  fetch(GAS_URL, { method:"POST", body:JSON.stringify({
+    token:AUTH_TOKEN, action:"searchPatient", name:name, kana:kana, tel:tel, customerNo:cno
+  })})
   .then(function(r){ return r.json(); })
   .then(function(d){
     if (!d.success || !d.found) {
-      result.innerHTML = '<p style="color:#dc2626;font-size:13px;margin-top:8px;">患者が見つかりませんでした</p>'; return;
+      msg.innerHTML = '<span style="color:#f87171;font-size:13px;">患者が見つかりませんでした</span>';
+      return;
     }
-    window._adminFoundPatient = d;
-    result.innerHTML = '<div class="admin-result">'
-      + '<div class="arow"><span class="albl">お名前</span><span>' + esc((d.sei||"")+" "+(d.mei||"")) + '</span></div>'
-      + '<div class="arow"><span class="albl">フリガナ</span><span>' + esc((d.seiKana||"")+" "+(d.meiKana||"")) + '</span></div>'
-      + '<div class="arow"><span class="albl">電話番号</span><span>' + esc(d.tel||"") + '</span></div>'
-      + '<div class="arow"><span class="albl">顧客No.</span><span>' + esc(d.customerNo||"") + '</span></div>'
-      + '<div style="display:flex;gap:8px;margin-top:10px;">'
-      + '<button class="admin-btn green" onclick="adminSetProxy()">この患者で代理操作</button>'
-      + '<button class="admin-btn" onclick="showAdminEditForm()">情報を編集</button>'
-      + '</div></div>';
+    msg.innerHTML = '<span style="color:#059669;font-size:13px;">✅ 見つかりました</span>';
+    _adminFoundPatient = d;
+    _adminReservations = [];
+    var panel = document.getElementById("admin-panel");
+    renderAdminPatientCard(panel, d);
   })
-  .catch(function(){ result.innerHTML = '<p style="color:#dc2626;font-size:13px;margin-top:8px;">通信エラーが発生しました</p>'; });
+  .catch(function(){
+    msg.innerHTML = '<span style="color:#f87171;font-size:13px;">通信エラーが発生しました</span>';
+  });
 }
 
-function showAdminEditForm() {
-  var d = window._adminFoundPatient;
+// 予約確認
+function adminShowReservations() {
+  var area = document.getElementById("adm-action-area");
+  var d = _adminFoundPatient;
   if (!d) return;
-  var result = document.getElementById("adm-search-result");
-  result.innerHTML = '<div class="admin-result">'
-    + '<h4 style="color:#1e40af;margin-bottom:8px;">✏️ 情報編集</h4>'
+  area.innerHTML = '<p style="font-size:13px;color:#6b7280;padding:8px 0;">予約を取得中...</p>';
+
+  fetch(GAS_URL, { method:"POST", body:JSON.stringify({
+    token:AUTH_TOKEN, action:"getUpcomingReservations",
+    sei:d.sei||"", mei:d.mei||"", seiKana:d.seiKana||"", meiKana:d.meiKana||"", tel:d.tel||""
+  })})
+  .then(function(r){ return r.json(); })
+  .then(function(res){
+    if (!res.success || !res.reservations || res.reservations.length === 0) {
+      area.innerHTML = '<p style="font-size:13px;color:#6b7280;padding:8px 0;">今後の予約はありません</p>';
+      return;
+    }
+    _adminReservations = res.reservations;
+    var days = ["日","月","火","水","木","金","土"];
+    var html = '<div class="admin-result"><div style="font-size:12px;color:#1e40af;font-weight:700;margin-bottom:8px;">今後の予約（' + res.reservations.length + '件）</div>';
+    res.reservations.forEach(function(r, i){
+      var dt = new Date(r.date);
+      var dlabel = (dt.getMonth()+1)+"月"+dt.getDate()+"日（"+days[dt.getDay()]+"） "+r.time;
+      html += '<div class="arow" style="align-items:center;">'
+        + '<span class="albl">' + esc(dlabel) + '</span>'
+        + '<span style="display:flex;align-items:center;gap:6px;">'
+        + esc(r.menu)
+        + '<button class="admin-btn red" style="padding:3px 8px;font-size:11px;" onclick="adminCancelOne('+i+')">取消</button>'
+        + '</span></div>';
+    });
+    html += '</div>';
+    area.innerHTML = html;
+  })
+  .catch(function(){
+    area.innerHTML = '<p style="font-size:13px;color:#f87171;">通信エラーが発生しました</p>';
+  });
+}
+
+function adminCancelOne(idx) {
+  var r = _adminReservations[idx];
+  if (!r) return;
+  if (!confirm(r.date + " " + r.time + "「" + r.menu + "」をキャンセルしますか？")) return;
+  fetch(GAS_URL, { method:"POST", body:JSON.stringify({
+    token:AUTH_TOKEN, action:"cancelReservation",
+    numericId:r.numericId||"", eventId:r.eventId||"", date:r.date, time:r.time, calendar:r.calendar||"リピッテ予約"
+  })})
+  .then(function(r2){ return r2.json(); })
+  .then(function(d){
+    if (d.success) {
+      _adminReservations.splice(idx, 1);
+      adminShowReservations();
+    } else {
+      alert("キャンセル失敗: " + (d.message||"エラー"));
+    }
+  });
+}
+
+// 情報編集
+function adminShowEditForm() {
+  var d = _adminFoundPatient;
+  if (!d) return;
+  var area = document.getElementById("adm-action-area");
+  area.innerHTML =
+    '<div class="admin-result">'
+    + '<div style="font-size:12px;color:#1e40af;font-weight:700;margin-bottom:12px;">✏️ 情報編集</div>'
     + '<div style="display:flex;flex-direction:column;gap:8px;">'
-    + '<div><label style="font-size:12px;color:#6b7280;">姓</label><input class="admin-inp" id="edit-sei" value="' + esc(d.sei||"") + '" style="width:100%;margin-top:2px;" /></div>'
-    + '<div><label style="font-size:12px;color:#6b7280;">名</label><input class="admin-inp" id="edit-mei" value="' + esc(d.mei||"") + '" style="width:100%;margin-top:2px;" /></div>'
-    + '<div><label style="font-size:12px;color:#6b7280;">セイ（カナ）</label><input class="admin-inp" id="edit-seiKana" value="' + esc(d.seiKana||"") + '" style="width:100%;margin-top:2px;" /></div>'
-    + '<div><label style="font-size:12px;color:#6b7280;">メイ（カナ）</label><input class="admin-inp" id="edit-meiKana" value="' + esc(d.meiKana||"") + '" style="width:100%;margin-top:2px;" /></div>'
-    + '<div><label style="font-size:12px;color:#6b7280;">電話番号</label><input class="admin-inp" id="edit-tel" value="' + esc(d.tel||"") + '" style="width:100%;margin-top:2px;" /></div>'
+    +   '<div style="display:flex;gap:8px;">'
+    +     '<div style="flex:1;"><label style="font-size:11px;color:#6b7280;">姓</label><input class="admin-inp" id="edit-sei" value="' + esc(d.sei||"") + '" style="width:100%;margin-top:2px;" /></div>'
+    +     '<div style="flex:1;"><label style="font-size:11px;color:#6b7280;">名</label><input class="admin-inp" id="edit-mei" value="' + esc(d.mei||"") + '" style="width:100%;margin-top:2px;" /></div>'
+    +   '</div>'
+    +   '<div style="display:flex;gap:8px;">'
+    +     '<div style="flex:1;"><label style="font-size:11px;color:#6b7280;">セイ</label><input class="admin-inp" id="edit-seiKana" value="' + esc(d.seiKana||"") + '" style="width:100%;margin-top:2px;" /></div>'
+    +     '<div style="flex:1;"><label style="font-size:11px;color:#6b7280;">メイ</label><input class="admin-inp" id="edit-meiKana" value="' + esc(d.meiKana||"") + '" style="width:100%;margin-top:2px;" /></div>'
+    +   '</div>'
+    +   '<div><label style="font-size:11px;color:#6b7280;">電話番号</label><input class="admin-inp" id="edit-tel" value="' + esc(d.tel||"") + '" style="width:100%;margin-top:2px;" /></div>'
     + '</div>'
     + '<div style="display:flex;gap:8px;margin-top:10px;">'
-    + '<button class="admin-btn green" onclick="submitAdminEdit()">保存</button>'
-    + '<button class="admin-btn gray" onclick="adminSearchPatient()">キャンセル</button>'
+    +   '<button class="admin-btn green" style="flex:1;" onclick="submitAdminEdit()">保存</button>'
+    +   '<button class="admin-btn gray" style="flex:1;" onclick="adminClearActionArea()">閉じる</button>'
     + '</div>'
     + '<p id="adm-edit-msg" style="font-size:12px;margin-top:8px;"></p>'
     + '</div>';
 }
 
+function adminClearActionArea() {
+  var area = document.getElementById("adm-action-area");
+  if (area) area.innerHTML = "";
+}
+
 function submitAdminEdit() {
-  var d = window._adminFoundPatient;
+  var d = _adminFoundPatient;
   if (!d) return;
   var newData = {
     sei:     document.getElementById("edit-sei").value.trim(),
@@ -2265,199 +2363,40 @@ function submitAdminEdit() {
     crmId:   d.crmId || "",
   };
   var msg = document.getElementById("adm-edit-msg");
-  msg.style.color = "#6b7280";
-  msg.textContent = "保存中...";
+  msg.style.color = "#6b7280"; msg.textContent = "保存中...";
 
   fetch(GAS_URL, { method:"POST", body:JSON.stringify(Object.assign({ token:AUTH_TOKEN, action:"registerPatient" }, newData)) })
   .then(function(r){ return r.json(); })
   .then(function(res){
     if (res.success) {
-      msg.style.color = "#059669";
-      msg.textContent = "✅ 更新しました";
-      window._adminFoundPatient = Object.assign(d, newData);
+      msg.style.color = "#059669"; msg.textContent = "✅ 更新しました";
+      _adminFoundPatient = Object.assign(d, newData);
+      // 患者カードを更新
+      var panel = document.getElementById("admin-panel");
+      renderAdminPatientCard(panel, _adminFoundPatient);
     } else {
-      msg.style.color = "#dc2626";
-      msg.textContent = "⚠️ 更新に失敗しました: " + (res.message||"");
+      msg.style.color = "#f87171"; msg.textContent = "⚠️ 更新失敗: " + (res.message||"");
     }
   })
-  .catch(function(){ msg.style.color = "#dc2626"; msg.textContent = "通信エラーが発生しました"; });
+  .catch(function(){ msg.style.color = "#f87171"; msg.textContent = "通信エラーが発生しました"; });
 }
 
-// ============================================================
-// タブ②：予約一覧
-// ============================================================
-function renderAdminReservations(panel) {
-  var sec = document.createElement("div");
-  sec.className = "admin-section";
-  sec.innerHTML = '<h4>予約一覧</h4>'
-    + '<div class="admin-search-row">'
-    + '<input class="admin-inp" id="adm-res-name" placeholder="氏名（例：山田 太郎）" />'
-    + '<input class="admin-inp" id="adm-res-kana" placeholder="フリガナ（例：ヤマダ タロウ）" />'
-    + '</div>'
-    + '<div class="admin-search-row">'
-    + '<input class="admin-inp" id="adm-res-tel" placeholder="電話番号" />'
-    + '<input class="admin-inp" id="adm-res-cno" placeholder="顧客番号" />'
-    + '</div>'
-    + '<button class="admin-btn" onclick="adminLoadReservations()">予約を取得</button>'
-    + '<div id="adm-res-result" style="margin-top:12px;"></div>';
-  panel.appendChild(sec);
-}
-
-function adminLoadReservations() {
-  var name = document.getElementById("adm-res-name") ? document.getElementById("adm-res-name").value.trim() : "";
-  var kana = document.getElementById("adm-res-kana").value.trim();
-  var tel  = document.getElementById("adm-res-tel").value.trim().replace(/-/g,"");
-  var cno  = document.getElementById("adm-res-cno") ? document.getElementById("adm-res-cno").value.trim() : "";
-  var result = document.getElementById("adm-res-result");
-  if (!name && !kana && !tel && !cno) { result.innerHTML = '<p style="color:#dc2626;font-size:13px;">いずれかの項目を入力してください</p>'; return; }
-
-  result.innerHTML = '<p style="font-size:13px;color:#6b7280;">取得中...</p>';
-  fetch(GAS_URL, { method:"POST", body:JSON.stringify({ token:AUTH_TOKEN, action:"searchPatient", name:name, kana:kana, tel:tel, customerNo:cno }) })
-  .then(function(r){ return r.json(); })
-  .then(function(d){
-    if (!d.success || !d.found) {
-      result.innerHTML = '<p style="color:#dc2626;font-size:13px;">患者が見つかりませんでした</p>'; return;
-    }
-    return fetch(GAS_URL, { method:"POST", body:JSON.stringify({
-      token:AUTH_TOKEN, action:"getUpcomingReservations",
-      sei:d.sei||"", mei:d.mei||"", seiKana:d.seiKana||"", meiKana:d.meiKana||"", tel:d.tel||""
-    })});
-  })
-  .then(function(r){ return r && r.json(); })
-  .then(function(d){
-    if (!d) return;
-    if (!d.success || !d.reservations || d.reservations.length === 0) {
-      result.innerHTML = '<p style="font-size:13px;color:#6b7280;">今後の予約はありません</p>'; return;
-    }
-    var days = ["日","月","火","水","木","金","土"];
-    var html = '<div class="admin-result"><h4 style="color:#1e40af;margin-bottom:8px;">今後の予約（' + d.reservations.length + '件）</h4>';
-    d.reservations.forEach(function(r, i){
-      var dt = new Date(r.date);
-      var dlabel = (dt.getMonth()+1)+"月"+dt.getDate()+"日（"+days[dt.getDay()]+"） "+r.time;
-      html += '<div class="arow"><span class="albl">' + dlabel + '</span><span>' + esc(r.menu)
-        + ' <button class="admin-btn red" style="padding:2px 8px;font-size:11px;" onclick="adminCancelOne('+i+')">キャンセル</button></span></div>';
-    });
-    html += '</div>';
-    result.innerHTML = html;
-    window._adminReservations = d.reservations;
-    window._adminResPatient   = d;
-  })
-  .catch(function(){ result.innerHTML = '<p style="color:#dc2626;font-size:13px;">通信エラーが発生しました</p>'; });
-}
-
-function adminCancelOne(idx) {
-  var r = window._adminReservations[idx];
-  if (!r) return;
-  if (!confirm(r.date + " " + r.time + "「" + r.menu + "」をキャンセルしますか？")) return;
-  fetch(GAS_URL, { method:"POST", body:JSON.stringify({
-    token:AUTH_TOKEN, action:"cancelReservation",
-    numericId:r.numericId||"", eventId:r.eventId||"", date:r.date, time:r.time, calendar:r.calendar||"リピッテ予約"
-  })})
-  .then(function(r2){ return r2.json(); })
-  .then(function(d){
-    if (d.success) {
-      window._adminReservations.splice(idx, 1);
-      adminLoadReservations();
-    } else {
-      alert("キャンセル失敗: " + (d.message||"エラー"));
-    }
-  });
-}
-
-// ============================================================
-// タブ③：代理予約
-// ============================================================
-function renderAdminProxy(panel) {
-  var sec = document.createElement("div");
-  sec.className = "admin-section";
-
-  if (!adminProxyPatient) {
-    sec.innerHTML = '<h4>代理予約する患者を選択</h4>'
-      + '<div class="admin-search-row">'
-      + '<input class="admin-inp" id="adm-proxy-name" placeholder="氏名（例：山田 太郎）" />'
-      + '<input class="admin-inp" id="adm-proxy-kana" placeholder="フリガナ（例：ヤマダ タロウ）" />'
-      + '</div>'
-      + '<div class="admin-search-row">'
-      + '<input class="admin-inp" id="adm-proxy-tel" placeholder="電話番号" />'
-      + '<input class="admin-inp" id="adm-proxy-cno" placeholder="顧客番号" />'
-      + '</div>'
-      + '<button class="admin-btn" onclick="adminSearchForProxy()">検索</button>'
-      + '<div id="adm-proxy-result"></div>';
-  } else {
-    sec.innerHTML = '<h4>代理予約中：' + esc(adminProxyPatient.name) + ' さん</h4>'
-      + '<p style="font-size:13px;color:#6b7280;margin-bottom:12px;">チャット画面で通常通り予約を進めてください。<br>完了後は「管理者終了」または「代理解除」を押してください。</p>'
-      + '<div style="display:flex;gap:8px;">'
-      + '<button class="admin-btn green" onclick="startProxyChat()">予約フローを開始</button>'
-      + '<button class="admin-btn gray" onclick="clearProxyPatient()">代理解除</button>'
-      + '</div>';
-  }
-  panel.appendChild(sec);
-}
-
-function adminSearchForProxy() {
-  var name = document.getElementById("adm-proxy-name") ? document.getElementById("adm-proxy-name").value.trim() : "";
-  var kana = document.getElementById("adm-proxy-kana").value.trim();
-  var tel  = document.getElementById("adm-proxy-tel").value.trim().replace(/-/g,"");
-  var cno  = document.getElementById("adm-proxy-cno") ? document.getElementById("adm-proxy-cno").value.trim() : "";
-  var result = document.getElementById("adm-proxy-result");
-  if (!name && !kana && !tel && !cno) { result.innerHTML = '<p style="color:#dc2626;font-size:13px;margin-top:8px;">いずれかの項目を入力してください</p>'; return; }
-  result.innerHTML = '<p style="font-size:13px;color:#6b7280;margin-top:8px;">検索中...</p>';
-
-  fetch(GAS_URL, { method:"POST", body:JSON.stringify({ token:AUTH_TOKEN, action:"searchPatient", name:name, kana:kana, tel:tel, customerNo:cno }) })
-  .then(function(r){ return r.json(); })
-  .then(function(d){
-    if (!d.success || !d.found) {
-      result.innerHTML = '<p style="color:#dc2626;font-size:13px;margin-top:8px;">患者が見つかりませんでした</p>'; return;
-    }
-    result.innerHTML = '<div class="admin-result">'
-      + '<div class="arow"><span class="albl">お名前</span><span>' + esc((d.sei||"")+" "+(d.mei||"")) + '</span></div>'
-      + '<div class="arow"><span class="albl">フリガナ</span><span>' + esc((d.seiKana||"")+" "+(d.meiKana||"")) + '</span></div>'
-      + '<div class="arow"><span class="albl">電話番号</span><span>' + esc(d.tel||"") + '</span></div>'
-      + '<div style="margin-top:10px;">'
-      + '<button class="admin-btn green" onclick="setProxyPatient()">この患者で代理予約を開始</button>'
-      + '</div></div>';
-    window._adminProxyCandidate = d;
-  })
-  .catch(function(){ result.innerHTML = '<p style="color:#dc2626;font-size:13px;margin-top:8px;">通信エラーが発生しました</p>'; });
-}
-
-function setProxyPatient() {
-  var d = window._adminProxyCandidate;
+// 代理予約開始
+function adminStartProxy() {
+  var d = _adminFoundPatient;
   if (!d) return;
   adminProxyPatient = {
     sei:d.sei||"", mei:d.mei||"",
     seiKana:d.seiKana||"", meiKana:d.meiKana||"",
-    name:(d.sei||"")+" "+(d.mei||""),
+    name:((d.sei||"")+" "+(d.mei||"")).trim()||d.name||"",
     tel:d.tel||"",
     crmId:d.crmId||"", customerNo:d.customerNo||"",
   };
-  _adminTab = "proxy";
-  renderAdminPanel();
-}
-
-function adminSetProxy() {
-  var d = window._adminFoundPatient;
-  if (!d) return;
-  adminProxyPatient = {
-    sei:d.sei||"", mei:d.mei||"",
-    seiKana:d.seiKana||"", meiKana:d.meiKana||"",
-    name:(d.sei||"")+" "+(d.mei||""),
-    tel:d.tel||"",
-    crmId:d.crmId||"", customerNo:d.customerNo||"",
-  };
-  _adminTab = "proxy";
-  renderAdminPanel();
-}
-
-function clearProxyPatient() {
-  adminProxyPatient = null;
-  _adminTab = "proxy";
-  renderAdminPanel();
+  startProxyChat();
 }
 
 function startProxyChat() {
   if (!adminProxyPatient) return;
-  // 代理患者情報をpatient変数に上書き（一時的）
   patient = Object.assign({}, adminProxyPatient);
   reserv = {
     sei:adminProxyPatient.sei, mei:adminProxyPatient.mei,
@@ -2466,12 +2405,10 @@ function startProxyChat() {
     customerNo:adminProxyPatient.customerNo||"",
     whoConfirmed:true,
   };
-  // パネルを隠してチャット画面を表示
   document.getElementById("admin-panel").style.display = "none";
   document.getElementById("msgs").style.display = "flex";
   document.querySelector(".footer").style.display = "block";
 
-  // チャット欄に代理中バナーを表示
   var banner = document.createElement("div");
   banner.id = "proxy-banner";
   banner.className = "admin-proxy-bar";
@@ -2490,7 +2427,6 @@ function returnToAdminPanel() {
   document.getElementById("msgs").style.display = "none";
   document.querySelector(".footer").style.display = "none";
   document.getElementById("admin-panel").style.display = "flex";
-  // patientをサクラ整骨院に戻す
   patient = loadData("sakura_patient") || {};
   reserv = {};
   step = "";
@@ -2546,7 +2482,7 @@ function submitAdminPassword() {
   if (pw === ADMIN_PASSWORD) {
     document.getElementById("admin-pw-overlay").remove();
     isAdmin = true;
-    activateAdminMode();
+    enterAdminMode();
   } else {
     var err = document.getElementById("admin-pw-error");
     err.style.display = "block";
@@ -2565,245 +2501,15 @@ function cancelAdminLogin() {
   wait(function(){ askPurpose(); }, 600);
 }
 
-// ② 管理者モード起動
-function activateAdminMode() {
-  // ヘッダーに管理者バッジを追加
-  var htxt = document.querySelector(".htxt p");
-  if (htxt && !document.getElementById("admin-badge")) {
-    var badge = document.createElement("span");
-    badge.id = "admin-badge";
-    badge.className = "admin-badge";
-    badge.textContent = "管理者";
-    htxt.appendChild(badge);
-  }
-  document.querySelector(".header").style.background = "linear-gradient(135deg,#1e3a8a,#1e40af)";
-  // 🛠 ボタンを表示
-  var adminBtn = document.getElementById("admin-panel-btn");
-  if (adminBtn) adminBtn.style.display = "inline";
-  // メッセージエリアをクリアして管理パネルを表示
-  document.getElementById("msgs").innerHTML = "";
-  disableInput();
-  showAdminPanel();
-}
 
 // ③ 管理パネル本体（チャットエリアに描画）
-function showAdminPanel() {
+function renderAdminPanel() {
   var msgs = document.getElementById("msgs");
   msgs.innerHTML = "";
 
-  var wrap = document.createElement("div");
-  wrap.style.cssText = "padding:12px 8px;";
-  wrap.innerHTML =
-    '<div class="admin-result" style="margin-bottom:12px;">' +
-      '<div style="font-size:14px;font-weight:700;color:#1e40af;margin-bottom:4px;">🛠 管理者パネル</div>' +
-      '<div style="font-size:12px;color:#6b7280;">操作したい項目を選んでください</div>' +
-    '</div>' +
-    // タブボタン
-    '<div class="admin-tab-row" id="admin-tabs">' +
-      '<button class="admin-tab active" onclick="showAdminTab(\'search\')">🔍 患者検索</button>' +
-      '<button class="admin-tab" onclick="showAdminTab(\'reservations\')">📅 予約一覧</button>' +
-      '<button class="admin-tab" onclick="showAdminTab(\'proxy\')">👤 代理予約</button>' +
-      '<button class="admin-tab" onclick="showAdminTab(\'edit\')">✏️ 患者編集</button>' +
-    '</div>' +
-    '<div id="admin-content"></div>';
-  msgs.appendChild(wrap);
-  showAdminTab("search");
-}
 
-function showAdminTab(tab) {
-  // タブアクティブ切り替え
-  document.querySelectorAll(".admin-tab").forEach(function(t){ t.classList.remove("active"); });
-  var tabMap = { search:0, reservations:1, proxy:2, edit:3 };
-  var tabs = document.querySelectorAll(".admin-tab");
-  if (tabs[tabMap[tab]]) tabs[tabMap[tab]].classList.add("active");
-  var c = document.getElementById("admin-content");
-  if      (tab === "search")       renderAdminSearch(c);
-  else if (tab === "reservations") renderAdminReservations(c);
-  else if (tab === "proxy")        renderAdminProxy(c);
-  else if (tab === "edit")         renderAdminEdit(c);
-}
 
-// ④ 患者検索タブ
-function renderAdminSearch(c) {
-  c.innerHTML =
-    '<div class="admin-section" style="margin-top:12px;">' +
-      '<h4>🔍 患者情報検索</h4>' +
-      '<div class="admin-search-row">' +
-        '<input class="admin-inp" id="admin-search-kana" placeholder="フリガナ（例：ヤマダ タロウ）">' +
-        '<input class="admin-inp" id="admin-search-tel" placeholder="電話番号" style="flex:0.8">' +
-      '</div>' +
-      '<button class="admin-btn" style="width:100%;" onclick="execAdminSearch()">検索する</button>' +
-      '<div id="admin-search-result" style="margin-top:10px;"></div>' +
-    '</div>';
-}
 
-function execAdminSearch() {
-  var kana = document.getElementById("admin-search-kana").value.trim();
-  var tel  = document.getElementById("admin-search-tel").value.trim().replace(/-/g,"");
-  if (!kana && !tel) { alert("フリガナまたは電話番号を入力してください"); return; }
-  var res = document.getElementById("admin-search-result");
-  res.innerHTML = '<div style="color:#6b7280;font-size:13px;">検索中...</div>';
-
-  fetch(GAS_URL, { method:"POST", body:JSON.stringify({ token:AUTH_TOKEN, action:"searchPatient", kana:kana, tel:tel }) })
-  .then(function(r){ return r.json(); })
-  .then(function(d){
-    if (!d.success || !d.found) {
-      res.innerHTML = '<div class="admin-result" style="color:#dc2626;">患者が見つかりませんでした</div>'; return;
-    }
-    window._adminFoundPatient = d;
-    res.innerHTML =
-      '<div class="admin-result">' +
-        '<div class="arow"><span class="albl">お名前</span><span>' + esc(d.sei||"") + " " + esc(d.mei||"") + '</span></div>' +
-        '<div class="arow"><span class="albl">フリガナ</span><span>' + esc(d.seiKana||"") + " " + esc(d.meiKana||"") + '</span></div>' +
-        '<div class="arow"><span class="albl">電話番号</span><span>' + esc(d.tel||"") + '</span></div>' +
-        '<div class="arow"><span class="albl">会員番号</span><span>' + esc(d.customerNo||"") + '</span></div>' +
-        '<div class="arow"><span class="albl">CRM ID</span><span>' + esc(d.crmId||"") + '</span></div>' +
-        '<div style="display:flex;gap:8px;margin-top:10px;">' +
-          '<button class="admin-btn green" style="flex:1" onclick="adminLoadUpcoming()">予約を見る</button>' +
-          '<button class="admin-btn" style="flex:1" onclick="adminSetProxy()">代理操作する</button>' +
-        '</div>' +
-      '</div>';
-  })
-  .catch(function(){ res.innerHTML = '<div class="admin-result" style="color:#dc2626;">通信エラーが発生しました</div>'; });
-}
-
-function adminLoadUpcoming() {
-  var d = window._adminFoundPatient;
-  if (!d) return;
-  var res = document.getElementById("admin-search-result");
-  res.innerHTML = '<div style="color:#6b7280;font-size:13px;">予約を取得中...</div>';
-
-  fetch(GAS_URL, { method:"POST", body:JSON.stringify({ token:AUTH_TOKEN, action:"getUpcomingReservations",
-    sei:d.sei||"", mei:d.mei||"", seiKana:d.seiKana||"", meiKana:d.meiKana||"", tel:d.tel||"" }) })
-  .then(function(r){ return r.json(); })
-  .then(function(rd){
-    if (!rd.success || !rd.reservations || rd.reservations.length === 0) {
-      res.innerHTML = '<div class="admin-result">今後の予約はありません</div>'; return;
-    }
-    var days = ["日","月","火","水","木","金","土"];
-    var html = '<div class="admin-result"><div style="font-weight:700;color:#1e40af;margin-bottom:8px;">📅 今後の予約（' + rd.reservations.length + '件）</div>';
-    rd.reservations.forEach(function(rv, i){
-      var dt = new Date(rv.date);
-      html += '<div class="arow">' +
-        '<span class="albl">' + (dt.getMonth()+1) + "月" + dt.getDate() + "日（" + days[dt.getDay()] + "） " + esc(rv.time) + '</span>' +
-        '<span style="display:flex;gap:6px;align-items:center;">' + esc(rv.menu) +
-          '<button class="admin-btn red" style="padding:3px 8px;font-size:11px;" onclick="adminCancelOne(' + i + ')">取消</button>' +
-        '</span></div>';
-    });
-    html += '</div>';
-    window._adminFoundReservations = rd.reservations;
-    res.innerHTML = html;
-  })
-  .catch(function(){ res.innerHTML = '<div class="admin-result" style="color:#dc2626;">予約取得エラー</div>'; });
-}
-
-function adminCancelOne(idx) {
-  var r = window._adminFoundReservations[idx];
-  if (!r) return;
-  if (!confirm(r.date + " " + r.time + "「" + r.menu + "」をキャンセルしますか？")) return;
-  fetch(GAS_URL, { method:"POST", body:JSON.stringify({ token:AUTH_TOKEN, action:"cancelReservation",
-    numericId:r.numericId, eventId:r.eventId, date:r.date, time:r.time, calendar:r.calendar||"リピッテ予約", sei:r.sei||"" }) })
-  .then(function(r){ return r.json(); })
-  .then(function(d){
-    alert(d.success ? "キャンセル完了しました" : "エラー: " + (d.message||""));
-    adminLoadUpcoming();
-  });
-}
-
-// ⑤ 予約一覧タブ（今日以降の全予約）
-function renderAdminReservations(c) {
-  c.innerHTML =
-    '<div class="admin-section" style="margin-top:12px;">' +
-      '<h4>📅 今後の予約一覧（患者名で絞り込み）</h4>' +
-      '<div class="admin-search-row">' +
-        '<input class="admin-inp" id="admin-resv-name" placeholder="患者名フリガナ（空白で全件）">' +
-        '<input class="admin-inp" id="admin-resv-tel" placeholder="電話番号" style="flex:0.8">' +
-      '</div>' +
-      '<button class="admin-btn" style="width:100%;" onclick="execAdminResvSearch()">検索する</button>' +
-      '<div id="admin-resv-result" style="margin-top:10px;"></div>' +
-    '</div>';
-}
-
-function execAdminResvSearch() {
-  var kana = document.getElementById("admin-resv-name").value.trim();
-  var tel  = document.getElementById("admin-resv-tel").value.trim().replace(/-/g,"");
-  var res  = document.getElementById("admin-resv-result");
-  res.innerHTML = '<div style="color:#6b7280;font-size:13px;">検索中...</div>';
-
-  fetch(GAS_URL, { method:"POST", body:JSON.stringify({ token:AUTH_TOKEN, action:"getUpcomingReservations",
-    sei:kana, mei:"", seiKana:kana, meiKana:"", tel:tel }) })
-  .then(function(r){ return r.json(); })
-  .then(function(d){
-    if (!d.success || !d.reservations || d.reservations.length === 0) {
-      res.innerHTML = '<div class="admin-result">予約が見つかりませんでした</div>'; return;
-    }
-    var days = ["日","月","火","水","木","金","土"];
-    var html = '<div class="admin-result"><div style="font-weight:700;color:#1e40af;margin-bottom:8px;">全' + d.reservations.length + '件</div>';
-    d.reservations.forEach(function(rv){
-      var dt = new Date(rv.date);
-      html += '<div class="arow">' +
-        '<span class="albl">' + (dt.getMonth()+1) + "月" + dt.getDate() + "日（" + days[dt.getDay()] + "） " + esc(rv.time) + '</span>' +
-        '<span>' + esc(rv.menu) + '</span>' +
-      '</div>';
-    });
-    html += '</div>';
-    res.innerHTML = html;
-  })
-  .catch(function(){ res.innerHTML = '<div class="admin-result" style="color:#dc2626;">取得エラー</div>'; });
-}
-
-// ⑥ 代理予約タブ
-function adminSetProxy() {
-  var d = window._adminFoundPatient;
-  if (!d) return;
-  adminProxyPatient = d;
-  showAdminTab("proxy");
-}
-
-function renderAdminProxy(c) {
-  if (adminProxyPatient) {
-    c.innerHTML =
-      '<div class="admin-section" style="margin-top:12px;">' +
-        '<div class="admin-proxy-bar" style="margin-bottom:12px;">' +
-          '👤 代理操作中：<strong>' + esc(adminProxyPatient.sei||"") + " " + esc(adminProxyPatient.mei||"") + '</strong> さん' +
-          '<button onclick="clearAdminProxy()">解除</button>' +
-        '</div>' +
-        '<h4>👤 代理予約・操作</h4>' +
-        '<button class="admin-btn" style="width:100%;margin-bottom:8px;" onclick="startProxyReservation()">📅 この患者で予約を入れる</button>' +
-        '<button class="admin-btn green" style="width:100%;margin-bottom:8px;" onclick="startProxyCancelFlow()">❌ この患者の予約をキャンセル・変更する</button>' +
-        '<button class="admin-btn gray" style="width:100%;" onclick="clearAdminProxy()">代理操作を終了する</button>' +
-      '</div>';
-  } else {
-    c.innerHTML =
-      '<div class="admin-section" style="margin-top:12px;">' +
-        '<h4>👤 代理予約</h4>' +
-        '<p style="font-size:13px;color:#6b7280;margin-bottom:12px;">まず「患者検索」タブで患者を検索し、「代理操作する」ボタンを押してください。</p>' +
-        '<button class="admin-btn secondary" style="width:100%;" onclick="showAdminTab(\'search\')">← 患者検索へ</button>' +
-      '</div>';
-  }
-}
-
-function clearAdminProxy() {
-  adminProxyPatient = null;
-  showAdminTab("proxy");
-}
-
-function startProxyReservation() {
-  var d = adminProxyPatient;
-  if (!d) return;
-  // 患者情報を reserv にセット → 通常の予約フローへ
-  reserv = {
-    sei: d.sei||"", mei: d.mei||"",
-    seiKana: d.seiKana||"", meiKana: d.meiKana||"",
-    tel: d.tel||"",
-    crmId: d.crmId||"", customerNo: d.customerNo||"",
-    whoConfirmed: true,
-  };
-  // 管理パネルを閉じてチャットUIに切り替え
-  switchToChat();
-  addBot("【管理者】" + (d.sei||"") + " " + (d.mei||"") + " さんの代理予約を開始します 🔧");
-  wait(function(){ askDate(); }, 600);
-}
 
 function startProxyCancelFlow() {
   var d = adminProxyPatient;
@@ -2912,7 +2618,7 @@ function returnToAdminPanel() {
   var bar = document.getElementById("admin-proxy-bar-chat");
   if (bar) bar.remove();
   disableInput();
-  showAdminPanel();
+  renderAdminPanel();
 }
 </script>
 </body>

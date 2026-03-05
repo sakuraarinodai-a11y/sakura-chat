@@ -2397,18 +2397,26 @@ function adminStartProxy() {
 
 function startProxyChat() {
   if (!adminProxyPatient) return;
-  patient = Object.assign({}, adminProxyPatient);
-  reserv = {
+
+  // patientを代理患者に差し替え（通常ログインと同じ状態にする）
+  patient = {
     sei:adminProxyPatient.sei, mei:adminProxyPatient.mei,
     seiKana:adminProxyPatient.seiKana, meiKana:adminProxyPatient.meiKana,
-    tel:adminProxyPatient.tel, crmId:adminProxyPatient.crmId||"",
+    name:adminProxyPatient.name,
+    tel:adminProxyPatient.tel,
+    crmId:adminProxyPatient.crmId||"",
     customerNo:adminProxyPatient.customerNo||"",
-    whoConfirmed:true,
   };
+  reserv = {};
+  step = "";
+
+  // パネル非表示・チャット表示
   document.getElementById("admin-panel").style.display = "none";
   document.getElementById("msgs").style.display = "flex";
   document.querySelector(".footer").style.display = "block";
+  document.getElementById("msgs").innerHTML = "";
 
+  // 代理操作中バナー
   var banner = document.createElement("div");
   banner.id = "proxy-banner";
   banner.className = "admin-proxy-bar";
@@ -2417,8 +2425,9 @@ function startProxyChat() {
     + '<button onclick="returnToAdminPanel()">管理画面に戻る</button>';
   document.getElementById("msgs").before(banner);
 
-  addBot("【代理操作】" + adminProxyPatient.name + " さんの予約を行います 🌸");
-  wait(function(){ askDate(); }, 600);
+  // 通常のリピーターフローと同じ入り口から開始
+  addBot("【代理操作】" + adminProxyPatient.name + " さんとしてログインしました 🌸");
+  wait(function(){ onPurpose("reserve"); }, 600);
 }
 
 function returnToAdminPanel() {

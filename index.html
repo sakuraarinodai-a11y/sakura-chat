@@ -114,6 +114,25 @@
   .admin-tab-row { display:flex; gap:6px; margin-bottom:12px; flex-wrap:wrap; }
   .admin-tab { padding:6px 14px; border:1.5px solid #bfdbfe; border-radius:20px; font-size:12px; color:#1e40af; cursor:pointer; background:white; }
   .admin-tab.active { background:#1e40af; color:white; border-color:#1e40af; }
+
+  /* カレンダーUI */
+  .cal-wrap { background:white; border-radius:16px; padding:16px; margin:0 0 8px 0; border:1.5px solid #bfdbfe; }
+  .cal-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+  .cal-title { font-size:15px; font-weight:700; color:#1e40af; }
+  .cal-nav { width:30px; height:30px; background:#eff6ff; border:none; border-radius:8px; font-size:16px; cursor:pointer; color:#1e40af; display:flex; align-items:center; justify-content:center; }
+  .cal-nav:hover { background:#dbeafe; }
+  .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:3px; }
+  .cal-dow { text-align:center; font-size:11px; color:#9ca3af; padding:4px 0; font-weight:600; }
+  .cal-dow.sun { color:#ef4444; }
+  .cal-dow.sat { color:#3b82f6; }
+  .cal-day { text-align:center; padding:7px 2px; font-size:13px; border-radius:8px; cursor:pointer; transition:all 0.15s; color:#1f2937; }
+  .cal-day:hover:not(.cal-empty):not(.cal-past):not(.cal-sun) { background:#dbeafe; color:#1e40af; }
+  .cal-day.cal-empty { cursor:default; }
+  .cal-day.cal-past { color:#d1d5db; cursor:not-allowed; }
+  .cal-day.cal-sun { color:#fca5a5; cursor:not-allowed; }
+  .cal-day.cal-sat { color:#93c5fd; }
+  .cal-day.cal-selected { background:#1e40af; color:white !important; font-weight:700; }
+  .cal-day.cal-today { border:2px solid #1e40af; font-weight:700; }
   .admin-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:100; display:flex; align-items:center; justify-content:center; }
   .admin-modal { background:white; border-radius:16px; padding:24px; width:320px; box-shadow:0 8px 40px rgba(0,0,0,0.2); }
   .admin-modal h3 { font-size:16px; font-weight:700; color:#1e40af; margin-bottom:16px; text-align:center; }
@@ -1313,9 +1332,10 @@ function askRegularVisit() {
               sei: patient.sei||"", mei: patient.mei||"",
               seiKana: patient.seiKana||"", meiKana: patient.meiKana||"",
               tel: patient.tel||"",
-              baseDate: reserv.date, // 今回予約した日を基準
             };
-            wait(function(){ askRegFrequency(); }, 400);
+            // 通常フローからはカレンダーを出してそのまま新フローへ
+            _regCalDates = [];
+            wait(function(){ askRegStartDate(); }, 400);
           } else {
             addBot("またのご来院をお待ちしております 🌸\nご不明な点はお電話（078-984-5788）までどうぞ。");
           }
@@ -1327,201 +1347,419 @@ function askRegularVisit() {
   }
 }
 
-// ① 頻度
-function askRegFrequency() {
-  addBot("どのくらいのペースで来院しますか？");
+// ① 開始日（カレンダー）
+// ============================================================
+// 定期予約（新フロー）：カレンダー複数選択→リスト→設定→空き確認→予約
+// ============================================================
+
+var _regCalDates   = [];   // チェックされた日付一覧 ["YYYY-MM-DD", ...]
+var _regCalYear    = 0;
+var _regCalMonth   = 0;
+var _regSlotMap    = {};   // {dateStr: [slots...]} 空き枠キャッシュ
+var _regChosenSlots= {};   // {dateStr: "HH:MM"} 選んだ時間
+var _regPendingIdx = 0;    // 空き確認中のインデックス
+
+// ▼ カレンダー表示（複数日チェック可）
+function askRegStartDate() {
+  addBot("通院を希望する日をすべて選んでください（複数選択可）。選び終わったら「この日程で設定する」を押してください。");
   wait(function(){
-    showChoices([
-      { label:"毎週",   val:7  },
-      { label:"隔週",   val:14 },
-    ], function(v){
-      _reg.intervalDays = v;
-      wait(function(){ askRegTimeZone(); }, 400);
-    });
-  }, 600);
+    var wrap = document.createElement("div");
+    wrap.className = "cardwrap";
+    wrap.id = "reg-cal-wrap";
+    wrap.innerHTML = '<div class="cal-wrap" id="reg-cal"></div>';
+    document.getElementById("msgs").appendChild(wrap);
+    _regCalDates  = [];
+    _regSlotMap   = {};
+    _regChosenSlots = {};
+    renderRegCal(new Date());
+    scrollB();
+  }, 400);
 }
 
-// ② 時間帯
-function askRegTimeZone() {
-  addBot("ご希望の時間帯はいつですか？");
-  wait(function(){
-    showChoices([
-      { label:"午前（8:00〜12:00）",  val:"morning"  },
-      { label:"昼（12:00〜15:00）",   val:"noon"     },
-      { label:"夕方（15:00以降）",     val:"evening"  },
-      { label:"どの時間帯でも",        val:"any"      },
-    ], function(v){
-      _reg.timeZone = v;
-      wait(function(){ askRegPeriod(); }, 400);
-    });
-  }, 600);
-}
+function renderRegCal(viewDate) {
+  _regCalYear  = viewDate.getFullYear();
+  _regCalMonth = viewDate.getMonth();
+  var today = new Date(); today.setHours(0,0,0,0);
+  var cal = document.getElementById("reg-cal");
+  if (!cal) return;
 
-// ③ 期間
-function askRegPeriod() {
-  addBot("どの範囲まで予約を取りますか？");
-  wait(function(){
-    showChoices([
-      { label:"3ヶ月先まで一気に取る",     val:90  },
-      { label:"1ヶ月先まで（毎月確認する）", val:30  },
-    ], function(v){
-      _reg.periodDays = v;
-      wait(function(){ startRegularBooking(); }, 400);
-    });
-  }, 600);
-}
+  var monthNames = ["1月","2月","3月","4月","5月","6月","7月","8月","9月","10月","11月","12月"];
+  var dows = ["日","月","火","水","木","金","土"];
 
-// ④ 空き検索→順番に予約処理
-function startRegularBooking() {
-  // 対象日リストを生成
-  var targets = [];
-  var base = new Date(_reg.baseDate);
-  var limit = new Date(base.getTime() + _reg.periodDays * 24*60*60*1000);
-  var cur = new Date(base.getTime() + _reg.intervalDays * 24*60*60*1000);
-  var days = ["日","月","火","水","木","金","土"];
-  while (cur <= limit) {
-    // 日曜は除外
-    if (cur.getDay() !== 0) {
-      var y = cur.getFullYear(), m = pad(cur.getMonth()+1), d = pad(cur.getDate());
-      targets.push(y+"-"+m+"-"+d);
-    }
-    cur = new Date(cur.getTime() + _reg.intervalDays * 24*60*60*1000);
+  var html = '<div class="cal-header">'
+    + '<button class="cal-nav" onclick="renderRegCal(new Date('+_regCalYear+','+((_regCalMonth-1))+',1))">‹</button>'
+    + '<span class="cal-title">'+_regCalYear+'年 '+monthNames[_regCalMonth]+'</span>'
+    + '<button class="cal-nav" onclick="renderRegCal(new Date('+_regCalYear+','+((_regCalMonth+1))+',1))">›</button>'
+    + '</div>'
+    + '<div class="cal-grid">';
+
+  dows.forEach(function(d,i){
+    html += '<div class="cal-dow'+(i===0?' sun':i===6?' sat':'')+'">' + d + '</div>';
+  });
+
+  var firstDay = new Date(_regCalYear, _regCalMonth, 1).getDay();
+  for (var i=0; i<firstDay; i++) html += '<div class="cal-day cal-empty"></div>';
+
+  var daysInMonth = new Date(_regCalYear, _regCalMonth+1, 0).getDate();
+  for (var d=1; d<=daysInMonth; d++) {
+    var thisDate = new Date(_regCalYear, _regCalMonth, d);
+    thisDate.setHours(0,0,0,0);
+    var dow = thisDate.getDay();
+    var isPast = thisDate <= today;
+    var isSun  = dow === 0;
+    var dateStr = _regCalYear+'-'+pad(_regCalMonth+1)+'-'+pad(d);
+    var isChecked = _regCalDates.indexOf(dateStr) >= 0;
+    var isToday   = thisDate.getTime() === today.getTime();
+    var isSat     = dow === 6;
+
+    var cls = "cal-day";
+    if (isPast || isSun) cls += " cal-past";
+    else if (isSat)      cls += " cal-sat";
+    if (isChecked)       cls += " cal-selected";
+    if (isToday)         cls += " cal-today";
+
+    var onclick = (!isPast && !isSun)
+      ? ' onclick="toggleRegCalDate(''+dateStr+'')"' : '';
+    var checkMark = isChecked ? '<span style="font-size:9px;display:block;color:white;line-height:1;">✓</span>' : '';
+    html += '<div class="'+cls+'"'+onclick+'>'+d+checkMark+'</div>';
   }
-  if (targets.length === 0) {
-    addBot("対象の日程がありませんでした 🌸");
+  html += '</div>';
+
+  // 選択リスト
+  if (_regCalDates.length > 0) {
+    html += '<div style="margin-top:10px;border-top:1px solid #dbeafe;padding-top:8px;">'
+      + '<div style="font-size:12px;color:#1e40af;font-weight:600;margin-bottom:6px;">選択中（'+_regCalDates.length+'日）：</div>';
+    var sorted = _regCalDates.slice().sort();
+    sorted.forEach(function(ds){
+      var sd = new Date(ds+"T00:00:00");
+      var dw = ["日","月","火","水","木","金","土"][sd.getDay()];
+      html += '<div style="font-size:12px;color:#374151;padding:2px 0;">'
+        + '📅 '+(sd.getMonth()+1)+'月'+sd.getDate()+'日（'+dw+'）'
+        + '<span onclick="removeRegCalDate(''+ds+'')" style="cursor:pointer;color:#ef4444;margin-left:8px;font-size:11px;">✕</span>'
+        + '</div>';
+    });
+    html += '<button class="admin-btn" style="width:100%;margin-top:10px;padding:10px;font-size:13px;" onclick="confirmRegDates()">'
+      + 'この日程で設定する（'+_regCalDates.length+'日）'
+      + '</button></div>';
+  }
+
+  cal.innerHTML = html;
+  scrollB();
+}
+
+function toggleRegCalDate(dateStr) {
+  var idx = _regCalDates.indexOf(dateStr);
+  if (idx >= 0) _regCalDates.splice(idx, 1);
+  else _regCalDates.push(dateStr);
+  renderRegCal(new Date(_regCalYear, _regCalMonth, 1));
+}
+
+function removeRegCalDate(dateStr) {
+  _regCalDates = _regCalDates.filter(function(d){ return d !== dateStr; });
+  renderRegCal(new Date(_regCalYear, _regCalMonth, 1));
+}
+
+function confirmRegDates() {
+  if (_regCalDates.length === 0) return;
+  // カレンダー無効化
+  var cal = document.getElementById("reg-cal");
+  if (cal) { cal.querySelectorAll("button,.cal-day,.cal-nav").forEach(function(el){ el.onclick=null; el.style.pointerEvents="none"; }); }
+
+  var sorted = _regCalDates.slice().sort();
+  var labels = sorted.map(function(ds){
+    var sd = new Date(ds+"T00:00:00");
+    var dw = ["日","月","火","水","木","金","土"][sd.getDay()];
+    return (sd.getMonth()+1)+"月"+sd.getDate()+"日（"+dw+"）";
+  }).join("、");
+  addUser(labels + " を選択");
+  wait(function(){ askRegMenuAndTime(); }, 400);
+}
+
+// ▼ メニュー・時間帯を一括設定
+function askRegMenuAndTime() {
+  // 患者フロー：_reg.menuが既にセットされていればメニュー選択不要
+  var hasMenu = !!(_reg.menu);
+  _regMenuSel = _reg.menu || null;
+  _regTimeSel = null;
+
+  addBot("選んだ日程の希望時間帯を設定してください。" + (hasMenu ? "\nメニュー：" + _reg.menu : ""));
+  wait(function(){
+    var wrap = document.createElement("div");
+    wrap.className = "cardwrap";
+
+    var menuHtml = hasMenu ? "" :
+      "<div style=\"margin-bottom:10px;\">" +
+      "<div style=\"font-size:12px;color:#6b7280;margin-bottom:6px;\">メニュー</div>" +
+      "<div id=\"reg-menu-btns\" style=\"display:flex;flex-wrap:wrap;gap:6px;\">" +
+      ["保険診療","自費診療","楽トレ","酸素カプセル"].map(function(m){
+        return "<button class=\"reg-opt-btn\" data-val=\""+m+"\" onclick=\"selectRegOption(this,'menu')\" style=\"padding:6px 12px;border:1.5px solid #bfdbfe;border-radius:8px;background:white;font-size:12px;cursor:pointer;color:#1e40af;\">"+m+"</button>";
+      }).join("") +
+      "</div></div>";
+
+    wrap.innerHTML =
+      "<div class=\"admin-section\">" + menuHtml +
+      "<div style=\"margin-bottom:10px;\">" +
+      "<div style=\"font-size:12px;color:#6b7280;margin-bottom:6px;\">希望時間帯</div>" +
+      "<div id=\"reg-time-btns\" style=\"display:flex;flex-wrap:wrap;gap:6px;\">" +
+      [["午前（8〜12時）","morning"],["昼（12〜15時）","noon"],["夕方（15時以降）","evening"],["どの時間帯でも","any"]].map(function(t){
+        return "<button class=\"reg-opt-btn\" data-val=\""+t[1]+"\" onclick=\"selectRegOption(this,'time')\" style=\"padding:6px 12px;border:1.5px solid #bfdbfe;border-radius:8px;background:white;font-size:12px;cursor:pointer;color:#1e40af;\">"+t[0]+"</button>";
+      }).join("") +
+      "</div></div>" +
+      "<button id=\"reg-confirm-btn\" onclick=\"confirmRegSettings()\" style=\"width:100%;padding:10px;background:#1e40af;color:white;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;opacity:0.4;pointer-events:none;\">空き状況を確認する</button>" +
+      "</div>";
+    document.getElementById("msgs").appendChild(wrap);
+    scrollB();
+  }, 400);
+}
+
+var _regMenuSel = null;
+var _regTimeSel = null;
+
+function selectRegOption(btn, type) {
+  var groupId = type === 'menu' ? 'reg-menu-btns' : 'reg-time-btns';
+  var group = document.getElementById(groupId);
+  if (group) {
+    group.querySelectorAll('.reg-opt-btn').forEach(function(b){
+      b.style.background = 'white'; b.style.color = '#1e40af'; b.style.fontWeight = 'normal';
+    });
+  }
+  btn.style.background = '#1e40af'; btn.style.color = 'white'; btn.style.fontWeight = '600';
+  if (type === 'menu') _regMenuSel = btn.getAttribute('data-val');
+  else                 _regTimeSel = btn.getAttribute('data-val');
+
+  var confirmBtn = document.getElementById('reg-confirm-btn');
+  if (confirmBtn && _regMenuSel && _regTimeSel) {
+    confirmBtn.style.opacity = '1'; confirmBtn.style.pointerEvents = 'auto';
+  }
+}
+
+function confirmRegSettings() {
+  if (!_regMenuSel || !_regTimeSel) return;
+  _reg.menu     = _regMenuSel;
+  _reg.timeZone = _regTimeSel;
+  _reg.targets  = _regCalDates.slice().sort();
+
+  // ボタン無効化
+  var wrap = document.getElementById('reg-confirm-btn');
+  if (wrap) { wrap.style.pointerEvents='none'; wrap.style.opacity='0.6'; }
+
+  var tzLabel = {morning:'午前',noon:'昼',evening:'夕方',any:'どの時間帯でも'}[_reg.timeZone] || _reg.timeZone;
+  addUser(_regMenuSel + '・' + tzLabel);
+  addBot(_reg.targets.length + "日分の空き枠を確認しています... ⏳");
+  showTyping();
+
+  // 全日程の空き枠を一括取得
+  _regSlotMap = {};
+  var promises = _reg.targets.map(function(dateStr){
+    return fetch(GAS_URL, { method:"POST", body:JSON.stringify({
+      token: AUTH_TOKEN,
+      action: "getSuggestedSlotsByTimeZone",
+      date: dateStr,
+      menu: _reg.menu,
+      timeZone: _reg.timeZone,
+    })})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      _regSlotMap[dateStr] = (d.success && d.slots && d.slots.length > 0) ? d.slots : [];
+    })
+    .catch(function(){ _regSlotMap[dateStr] = []; });
+  });
+
+  Promise.all(promises).then(function(){
+    removeTyping();
+    showRegSlotList();
+  });
+}
+
+// ▼ 全日程の空き候補を一覧で表示
+function showRegSlotList() {
+  var dows = ["日","月","火","水","木","金","土"];
+  var sorted = _reg.targets;
+
+  var html = '<div class="admin-section"><h4 style="color:#1e40af;margin-bottom:12px;">📋 空き状況</h4>';
+  sorted.forEach(function(dateStr){
+    var sd = new Date(dateStr+"T00:00:00");
+    var dw = dows[sd.getDay()];
+    var label = (sd.getMonth()+1)+"月"+sd.getDate()+"日（"+dw+"）";
+    var slots = _regSlotMap[dateStr] || [];
+
+    html += '<div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid #dbeafe;">'
+      + '<div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:6px;">'+label+'</div>';
+
+    if (slots.length === 0) {
+      html += '<div style="font-size:12px;color:#ef4444;">空き枠なし — この日はスキップされます</div>'
+        + '<button onclick="changeRegDayTimeZone(\''+dateStr+'\')" style="margin-top:6px;font-size:11px;padding:4px 10px;border:1px solid #bfdbfe;border-radius:6px;background:white;color:#6b7280;cursor:pointer;">⏱ 時間帯を変えて再検索</button>';
+    } else {
+      // 最大3候補表示
+      var top = slots.slice(0,3);
+      html += '<div style="display:flex;flex-wrap:wrap;gap:6px;" id="slots-'+dateStr+'">';
+      top.forEach(function(t){
+        html += '<button class="reg-slot-btn" data-date="'+dateStr+'" data-time="'+t+'" onclick="selectRegSlot(this)" '
+          + 'style="padding:6px 14px;border:1.5px solid #bfdbfe;border-radius:8px;background:white;font-size:13px;cursor:pointer;color:#1e40af;">'+t+'</button>';
+      });
+      html += '</div>'
+        + '<button onclick="changeRegDayTimeZone(\''+dateStr+'\')" style="margin-top:6px;font-size:11px;padding:4px 10px;border:1px solid #bfdbfe;border-radius:6px;background:white;color:#6b7280;cursor:pointer;">⏱ 個別に時間帯を変更</button>';
+    }
+    html += '</div>';
+  });
+
+  html += '<button id="reg-book-btn" onclick="startRegBooking()" style="width:100%;padding:11px;background:#1e40af;color:white;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;margin-top:4px;">予約を確定する</button>';
+  html += '</div>';
+
+  var wrap = document.createElement("div");
+  wrap.className = "cardwrap";
+  wrap.innerHTML = html;
+  document.getElementById("msgs").appendChild(wrap);
+  scrollB();
+  addBot("時間を選んで「予約を確定する」を押してください。空き枠のない日はスキップされます。");
+}
+
+function selectRegSlot(btn) {
+  var dateStr = btn.getAttribute('data-date');
+  var timeStr = btn.getAttribute('data-time');
+  // 同じ日の他ボタンを解除
+  document.querySelectorAll('.reg-slot-btn[data-date="'+dateStr+'"]').forEach(function(b){
+    b.style.background='white'; b.style.color='#1e40af'; b.style.fontWeight='normal';
+  });
+  btn.style.background='#1e40af'; btn.style.color='white'; btn.style.fontWeight='600';
+  _regChosenSlots[dateStr] = timeStr;
+}
+
+// ▼ 個別時間帯変更
+function changeRegDayTimeZone(dateStr) {
+  var sd = new Date(dateStr+"T00:00:00");
+  var dw = ["日","月","火","水","木","金","土"][sd.getDay()];
+  var label = (sd.getMonth()+1)+"月"+sd.getDate()+"日（"+dw+"）";
+
+  addBot(label + " の希望時間帯を選んでください。");
+  wait(function(){
+    showChoices([
+      { label:"午前（8〜12時）",  val:"morning"  },
+      { label:"昼（12〜15時）",   val:"noon"     },
+      { label:"夕方（15時以降）", val:"evening"  },
+      { label:"どの時間帯でも",   val:"any"      },
+    ], function(tz){
+      // 指定日だけ再取得
+      showTyping();
+      fetch(GAS_URL, { method:"POST", body:JSON.stringify({
+        token: AUTH_TOKEN,
+        action: "getSuggestedSlotsByTimeZone",
+        date: dateStr, menu: _reg.menu, timeZone: tz,
+      })})
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        removeTyping();
+        _regSlotMap[dateStr] = (d.success && d.slots && d.slots.length > 0) ? d.slots : [];
+        delete _regChosenSlots[dateStr];
+        // スロット行だけ再描画
+        var slotDiv = document.getElementById("slots-"+dateStr);
+        var slots = _regSlotMap[dateStr];
+        if (slotDiv) {
+          if (slots.length === 0) {
+            slotDiv.innerHTML = '<div style="font-size:12px;color:#ef4444;">空き枠なし</div>';
+          } else {
+            slotDiv.innerHTML = '';
+            slots.slice(0,3).forEach(function(t){
+              var b = document.createElement("button");
+              b.className = "reg-slot-btn";
+              b.setAttribute("data-date", dateStr);
+              b.setAttribute("data-time", t);
+              b.onclick = function(){ selectRegSlot(b); };
+              b.style.cssText = "padding:6px 14px;border:1.5px solid #bfdbfe;border-radius:8px;background:white;font-size:13px;cursor:pointer;color:#1e40af;";
+              b.textContent = t;
+              slotDiv.appendChild(b);
+            });
+          }
+        }
+      })
+      .catch(function(){ removeTyping(); addBot("取得に失敗しました。"); });
+    });
+  }, 400);
+}
+
+// ▼ 確定：選ばれた日程を順番に予約
+function startRegBooking() {
+  var datesWithSlots = _reg.targets.filter(function(d){
+    return _regSlotMap[d] && _regSlotMap[d].length > 0;
+  });
+
+  // 時間未選択の日は先頭スロットを自動選択
+  datesWithSlots.forEach(function(d){
+    if (!_regChosenSlots[d]) _regChosenSlots[d] = _regSlotMap[d][0];
+  });
+
+  if (datesWithSlots.length === 0) {
+    addBot("空き枠のある日がありませんでした。日程を変えてお試しください。");
     return;
   }
-  addBot(targets.length + "回分の空き枠を確認しています... ⏳");
+
+  // ボタン無効化
+  var btn = document.getElementById('reg-book-btn');
+  if (btn) { btn.style.pointerEvents='none'; btn.style.opacity='0.6'; btn.textContent='予約中...'; }
+
+  addBot(datesWithSlots.length + "件の予約を処理しています... ⏳");
   showTyping();
-  _reg.targets   = targets;
-  _reg.results   = []; // 予約済みリスト
+
+  _reg.results    = [];
+  _reg.bookTargets = datesWithSlots;
   _reg.currentIdx = 0;
-  processNextRegDate();
+  processNextRegBook();
 }
 
-// 1件ずつ処理
-function processNextRegDate() {
-  if (_reg.currentIdx >= _reg.targets.length) {
+function processNextRegBook() {
+  if (_reg.currentIdx >= _reg.bookTargets.length) {
     removeTyping();
     showRegSummary();
     return;
   }
-  var dateStr = _reg.targets[_reg.currentIdx];
+  var dateStr = _reg.bookTargets[_reg.currentIdx];
+  var timeStr = _regChosenSlots[dateStr];
+
   fetch(GAS_URL, { method:"POST", body:JSON.stringify({
+    action:"makeReservation",
     token: AUTH_TOKEN,
-    action: "getSuggestedSlotsByTimeZone",
     date: dateStr,
+    time: timeStr,
     menu: _reg.menu,
-    timeZone: _reg.timeZone,
+    sei: _reg.sei, mei: _reg.mei,
+    seiKana: _reg.seiKana, meiKana: _reg.meiKana,
+    tel: _reg.tel,
+    isRegular: true,
   })})
-  .then(function(r){return r.json();})
-  .then(function(d){
-    if (!d.success || !d.slots || d.slots.length === 0) {
-      // 空きなし → スキップかその日変更を聞く
-      removeTyping();
-      askRegSkipOrChange(dateStr);
-    } else {
-      // 空きあり → 先頭のスロットで自動予約
-      var slot = d.slots[0];
-      fetch(GAS_URL, { method:"POST", body:JSON.stringify(Object.assign({
-        action:"makeReservation",
-        token: AUTH_TOKEN,
-        date: dateStr,
-        time: slot,
-        isRegular: true,
-      }, _reg))})
-      .then(function(r){return r.json();})
-      .then(function(r2){
-        if (r2.success) {
-          _reg.results.push({ date:dateStr, time:slot, status:"ok" });
-        } else {
-          _reg.results.push({ date:dateStr, time:slot, status:"fail", msg:r2.message });
-        }
-        _reg.currentIdx++;
-        processNextRegDate();
-      });
-    }
+  .then(function(r){ return r.json(); })
+  .then(function(r2){
+    _reg.results.push({ date:dateStr, time:timeStr, status: r2.success ? "ok" : "fail", msg:r2.message||"" });
+    _reg.currentIdx++;
+    processNextRegBook();
   })
   .catch(function(){
-    _reg.results.push({ date:_reg.targets[_reg.currentIdx], status:"error" });
+    _reg.results.push({ date:dateStr, time:timeStr, status:"error" });
     _reg.currentIdx++;
-    processNextRegDate();
+    processNextRegBook();
   });
 }
 
-// 空きなし → 日を変えるかその日やめるか
-function askRegSkipOrChange(dateStr) {
-  var d = new Date(dateStr);
-  var days = ["日","月","火","水","木","金","土"];
-  var label = (d.getMonth()+1)+"月"+d.getDate()+"日（"+days[d.getDay()]+"）";
-  addBot(label + " は希望の時間帯に空きがありませんでした。\nどうしますか？");
-  wait(function(){
-    showChoices([
-      { label:"別の日にする",       val:"change" },
-      { label:"この日はやめておく", val:"skip"   },
-    ], function(v){
-      if (v === "skip") {
-        _reg.results.push({ date:dateStr, status:"skipped" });
-        _reg.currentIdx++;
-        showTyping();
-        processNextRegDate();
-      } else {
-        // 前後3日以内で代替日を提案
-        askRegAlternate(dateStr);
-      }
-    });
-  }, 600);
-}
-
-// 代替日選択
-function askRegAlternate(origDate) {
-  var choices = [];
-  var base = new Date(origDate);
-  for (var delta = -3; delta <= 3; delta++) {
-    if (delta === 0) continue;
-    var d = new Date(base.getTime() + delta * 24*60*60*1000);
-    if (d.getDay() === 0) continue; // 日曜除外
-    var days = ["日","月","火","水","木","金","土"];
-    var y = d.getFullYear(), m = pad(d.getMonth()+1), dd = pad(d.getDate());
-    choices.push({ label:(d.getMonth()+1)+"月"+d.getDate()+"日（"+days[d.getDay()]+"）", val:y+"-"+m+"-"+dd });
-  }
-  choices.push({ label:"この日はやめておく", val:"skip" });
-  addBot("代わりの日はいかがですか？");
-  wait(function(){
-    showChoices(choices, function(v){
-      if (v === "skip") {
-        _reg.results.push({ date:origDate, status:"skipped" });
-        _reg.currentIdx++;
-        showTyping();
-        processNextRegDate();
-      } else {
-        // 選んだ日で空きを再確認
-        _reg.targets[_reg.currentIdx] = v;
-        showTyping();
-        processNextRegDate();
-      }
-    });
-  }, 600);
-}
-
-// まとめ表示
+// ▼ まとめ表示
 function showRegSummary() {
   var ok      = _reg.results.filter(function(r){ return r.status==="ok"; });
-  var skipped = _reg.results.filter(function(r){ return r.status==="skipped"; });
-  var failed  = _reg.results.filter(function(r){ return r.status==="fail"||r.status==="error"; });
+  var failed  = _reg.results.filter(function(r){ return r.status!=="ok"; });
+  var skipped = _reg.targets.filter(function(d){ return !_regChosenSlots[d] || !_regSlotMap[d] || _regSlotMap[d].length===0; });
 
   addBot("定期予約の設定が完了しました 🌸");
   wait(function(){
-    var html2 = "<div class=\"card\">";
-    html2 += "<h3>📅 定期予約まとめ</h3>";
+    var dows = ["日","月","火","水","木","金","土"];
+    var html2 = '<div class="card"><h3>📅 定期予約まとめ</h3>';
     ok.forEach(function(r){
-      var d = new Date(r.date);
-      var days = ["日","月","火","水","木","金","土"];
-      html2 += "<div class=\"row\"><span class=\"lbl\">✅</span><span>"+(d.getMonth()+1)+"月"+d.getDate()+"日（"+days[d.getDay()]+"） "+r.time+"</span></div>";
+      var sd = new Date(r.date+"T00:00:00");
+      html2 += '<div class="row"><span class="lbl">✅</span><span>'+(sd.getMonth()+1)+'月'+sd.getDate()+'日（'+dows[sd.getDay()]+'） '+r.time+'</span></div>';
     });
-    if (skipped.length > 0) html2 += "<div class=\"row\"><span class=\"lbl\">⏭️ スキップ</span><span>"+skipped.length+"日</span></div>";
-    if (failed.length  > 0) html2 += "<div class=\"row\"><span class=\"lbl\">⚠️ 要確認</span><span>"+failed.length+"日</span></div>";
-    html2 += "</div>";
+    if (skipped.length > 0) {
+      html2 += '<div class="row"><span class="lbl" style="color:#f59e0b;">⏭️ 空きなし</span><span>';
+      html2 += skipped.map(function(d){ var sd=new Date(d+"T00:00:00"); return (sd.getMonth()+1)+'月'+sd.getDate()+'日'; }).join('、');
+      html2 += '</span></div>';
+    }
+    if (failed.length  > 0) html2 += '<div class="row"><span class="lbl" style="color:#ef4444;">⚠️ 要確認</span><span>'+failed.length+'件</span></div>';
+    html2 += '</div>';
     var wrap = document.createElement("div"); wrap.className = "cardwrap";
     wrap.innerHTML = html2;
     document.getElementById("msgs").appendChild(wrap); scrollB();
@@ -2505,9 +2743,29 @@ function askProxyReservationType() {
         reserv._forceFamily = true;
         wait(function(){ checkPastReservations(); }, 400);
       } else if (v === "regular") {
-        // メニュー選択→日時→定期設定
-        wait(function(){ askPurposeOnly(); }, 400);
+        // メニュー選択→カレンダー開始日→頻度→時間帯→期間→定期予約実行
+        wait(function(){ askRegularMenu(); }, 400);
       }
+    });
+  }, 600);
+}
+
+function askRegularMenu() {
+  addBot("どのメニューで定期予約しますか？");
+  wait(function(){
+    showChoices([
+      { label:"保険診療（20分）",          val:"保険診療"       },
+      { label:"自費診療（60分）",          val:"自費診療"       },
+      { label:"楽トレ",                    val:"楽トレ"         },
+      { label:"酸素カプセル",              val:"酸素カプセル"   },
+    ], function(v){
+      _reg = {
+        menu: v,
+        sei: patient.sei||"", mei: patient.mei||"",
+        seiKana: patient.seiKana||"", meiKana: patient.meiKana||"",
+        tel: patient.tel||"",
+      };
+      wait(function(){ askRegStartDate(); }, 400);
     });
   }, 600);
 }

@@ -1560,20 +1560,33 @@ function toggleRegCategory(chk, group) {
   var subDiv = document.getElementById('sub-' + group);
   if (subDiv) subDiv.style.display = chk.checked ? 'flex' : 'none';
 
-  // チェック外したらそのグループのメニューを解除
   if (!chk.checked) {
+    // チェック外し：グループのメニューを解除
     _regMenuList = _regMenuList.filter(function(m){ return m.group !== group; });
-    // サブボタンもリセット
     if (subDiv) subDiv.querySelectorAll('.reg-sub-btn').forEach(function(b){
       b.style.background='white'; b.style.color='#1e40af'; b.style.fontWeight='normal';
     });
-    // サブなしカテゴリ（楽トレ・酸素）
-    if (group === 'rakukan') _regMenuList = _regMenuList.filter(function(m){ return m.val !== '楽トレ'; });
-    if (group === 'oxygen')  _regMenuList = _regMenuList.filter(function(m){ return m.val !== '酸素カプセル'; });
   } else {
-    // サブなしカテゴリは即追加
-    if (group === 'rakukan') { _regMenuList.push({group:'rakukan', val:'楽トレ', label:'楽トレ'}); }
-    if (group === 'oxygen')  { _regMenuList.push({group:'oxygen',  val:'酸素カプセル', label:'酸素カプセル'}); }
+    // チェック入れ
+    if (group === 'rakukan') {
+      _regMenuList = _regMenuList.filter(function(m){ return m.group !== 'rakukan'; });
+      _regMenuList.push({group:'rakukan', val:'楽トレ', label:'楽トレ'});
+    } else if (group === 'oxygen') {
+      _regMenuList = _regMenuList.filter(function(m){ return m.group !== 'oxygen'; });
+      _regMenuList.push({group:'oxygen', val:'酸素カプセル', label:'酸素カプセル'});
+    } else if (subDiv) {
+      // サブありカテゴリ：先頭ボタンを自動選択
+      var firstBtn = subDiv.querySelector('.reg-sub-btn');
+      if (firstBtn) {
+        // selectRegSubを直接呼ぶ前にupdateRegMenuDisplayが2重にならないよう inline で処理
+        subDiv.querySelectorAll('.reg-sub-btn').forEach(function(b){
+          b.style.background='white'; b.style.color='#1e40af'; b.style.fontWeight='normal';
+        });
+        firstBtn.style.background='#1e40af'; firstBtn.style.color='white'; firstBtn.style.fontWeight='600';
+        _regMenuList = _regMenuList.filter(function(m){ return m.group !== group; });
+        _regMenuList.push({group:group, val:firstBtn.getAttribute('data-val'), label:firstBtn.getAttribute('data-val')});
+      }
+    }
   }
   updateRegMenuDisplay();
 }

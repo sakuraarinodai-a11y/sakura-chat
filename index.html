@@ -155,7 +155,7 @@ function saveData(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){
 function loadData(k){ try{var d=localStorage.getItem(k);return d?JSON.parse(d):null;}catch(e){return null;} }
 
 var GAS_URL    = "https://script.google.com/macros/s/AKfycbyfHn9LJJMs7KQNi0rxTVUTwvOlma_VwM8sXdabL693gx9h1xguR-vibe3D8MbZseR6/exec";
-var AUTH_TOKEN = "sakura_2026_secret";
+var AUTH_TOKEN = "Sk@2026_aRiNo#dAi";
 var TEL        = "078-984-5788";
 var LINE_URL   = "https://line.me/R/ti/p/%40487yoson";
 var YOUTUBE_KOBE = "https://youtu.be/_wXc0tYJ5wk?si=XL0Kk8ZhG-uBq-Rx";
@@ -168,7 +168,7 @@ var reserv = {};
 var step = "";
 
 // 管理者モード
-var ADMIN_PASSWORD = "sakura_admin_2026";
+var ADMIN_PASSWORD = "Sk@Admin#2026_aRi";
 var isAdmin = false;
 var adminProxyPatient = null; // 代理操作中の患者情報
 
@@ -2057,7 +2057,7 @@ var _stallCount = 0;
 function resetStallTimer() {
   // GAS通信中のみ呼ばれる。10秒以内にremoveTypingされなければ発動。
   if (_stallTimer) clearTimeout(_stallTimer);
-  _stallTimer = setTimeout(function(){ onStall(); }, 10000);
+  _stallTimer = setTimeout(function(){ onStall(); }, 18000);
 }
 
 function onStall() {
@@ -2072,24 +2072,9 @@ function onStall() {
       wait(function(){ askPurpose(); }, 600);
     }, 800);
   } else {
-    // 1回目は「こういうことですか？」と確認
-    addBot("少し止まってしまいました 🌸\nどのようなことをご希望でしたか？");
-    wait(function(){
-      showChoices([
-        { label:"📅 予約したい",            val:"reserve"     },
-        { label:"📋 予約状況を確認したい",   val:"check"       },
-        { label:"❌ キャンセル・変更したい", val:"cancel"      },
-        { label:"✏️ 登録情報を変更したい",  val:"editprofile" },
-        { label:"🔄 最初からやり直す",       val:"restart"     },
-      ], function(v){
-        _stallCount = 0;
-        if      (v==="reserve")     { reserv={}; step=""; wait(function(){ onPurpose("reserve"); }, 400); }
-        else if (v==="check")       { wait(function(){ loadUpcomingReservations(patient); }, 400); }
-        else if (v==="cancel")      { wait(function(){ startCancelFlow(); }, 400); }
-        else if (v==="editprofile") { wait(function(){ showProfileEdit(); }, 400); }
-        else                        { reserv={}; step=""; wait(function(){ askPurpose(); }, 400); }
-      });
-    }, 600);
+    // 1回目：待つかやり直しを案内（選択肢は出さずヘッダーボタンへ誘導）
+    addBot("少々お時間がかかっております 🙏\nそのまましばらくお待ちいただくか、うまく進まない場合は画面上の「🔄 最初から」ボタンでやり直してください。");
+    _stallCount = 0;
   }
 }
 

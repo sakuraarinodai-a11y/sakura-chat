@@ -1537,8 +1537,8 @@ function buildRegMenuUI() {
     '<label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:#1e40af;cursor:pointer;">' +
     '<input type="checkbox" id="chk-jiko" onchange="toggleRegCategory(this,\'jiko\')" style="width:16px;height:16px;cursor:pointer;">交通事故</label>' +
     '<div id="sub-jiko" style="display:none;margin:8px 0 0 22px;display:flex;flex-wrap:wrap;gap:6px;">' +
-    ['交通事故治療','交通事故無料相談'].map(function(m){
-      return '<button class="reg-sub-btn" data-group="jiko" data-val="'+m+'" onclick="selectRegSub(this)" style="padding:5px 10px;border:1.5px solid #bfdbfe;border-radius:8px;background:white;font-size:12px;cursor:pointer;color:#1e40af;">'+m+'</button>';
+    [['交通事故治療','交通事故治療'],['施術5分','交通事故治療（時短）']].map(function(m){
+      return '<button class="reg-sub-btn" data-group="jiko" data-val="'+m[0]+'" onclick="selectRegSub(this)" style="padding:5px 10px;border:1.5px solid #bfdbfe;border-radius:8px;background:white;font-size:12px;cursor:pointer;color:#1e40af;">'+m[1]+'</button>';
     }).join('') + '</div></div>' +
     // 選択済み表示
     '<div id="reg-selected-menus" style="margin-top:12px;min-height:24px;"></div>' +
@@ -1732,11 +1732,23 @@ function changeRegDayMenu(dateStr) {
   addBot(label + " のメニューを変更します。");
   wait(function(){
     // 全メニュー選択肢を出す
-    var allMenus = ["施術5分","施術15分","施術30分","施術60分","施術75分","楽トレ","酸素カプセル",
-      "セルフトレーニング15分","セルフトレーニング30分",
-      "マンツーマントレーニング15分","マンツーマントレーニング30分","マンツーマントレーニング60分",
-      "交通事故治療","交通事故無料相談"];
-    showChoices(allMenus.map(function(m){ return {label:m, val:m}; }), function(v){
+    var allMenus = [
+      {val:"施術5分",label:"施術5分"},
+      {val:"施術15分",label:"施術15分"},
+      {val:"施術30分",label:"施術30分"},
+      {val:"施術60分",label:"施術60分"},
+      {val:"施術75分",label:"施術75分"},
+      {val:"楽トレ",label:"楽トレ"},
+      {val:"酸素カプセル",label:"酸素カプセル"},
+      {val:"セルフトレーニング15分",label:"セルフトレーニング15分"},
+      {val:"セルフトレーニング30分",label:"セルフトレーニング30分"},
+      {val:"マンツーマントレーニング15分",label:"マンツーマントレーニング15分"},
+      {val:"マンツーマントレーニング30分",label:"マンツーマントレーニング30分"},
+      {val:"マンツーマントレーニング60分",label:"マンツーマントレーニング60分"},
+      {val:"交通事故治療",label:"交通事故治療（30分）"},
+      {val:"施術5分",label:"交通事故治療（時短）"},
+    ];
+    showChoices(allMenus, function(v){
       if (!_reg.dateMenus) _reg.dateMenus = {};
       _reg.dateMenus[dateStr] = [v];
       // バッジ更新
@@ -2920,23 +2932,15 @@ function askProxyReservationType() {
 }
 
 function askRegularMenu() {
-  addBot("どのメニューで定期予約しますか？");
-  wait(function(){
-    showChoices([
-      { label:"保険診療（20分）",          val:"保険診療"       },
-      { label:"自費診療（60分）",          val:"自費診療"       },
-      { label:"楽トレ",                    val:"楽トレ"         },
-      { label:"酸素カプセル",              val:"酸素カプセル"   },
-    ], function(v){
-      _reg = {
-        menu: v,
-        sei: patient.sei||"", mei: patient.mei||"",
-        seiKana: patient.seiKana||"", meiKana: patient.meiKana||"",
-        tel: patient.tel||"",
-      };
-      wait(function(){ askRegStartDate(); }, 400);
-    });
-  }, 600);
+  // 新フロー：メニューはカレンダー後のUIで選択するため直接カレンダーへ
+  _reg = {
+    sei: patient.sei||"", mei: patient.mei||"",
+    seiKana: patient.seiKana||"", meiKana: patient.meiKana||"",
+    tel: patient.tel||"",
+  };
+  _regCalDates = [];
+  _regMenuList = [];
+  wait(function(){ askRegStartDate(); }, 400);
 }
 
 function returnToAdminPanel() {

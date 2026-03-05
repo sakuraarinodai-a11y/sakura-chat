@@ -181,7 +181,7 @@ window.onload = function() {
     if (patient.name) {
       addBot("おかえりなさい、" + patient.name + "さん 🌸");
       wait(function() {
-        var shouldSurvey = checkShouldAskSurvey();
+        var shouldSurvey = !adminProxyPatient && checkShouldAskSurvey();
         if (shouldSurvey) {
           wait(function() { askPrevFeedback(); }, 600);
         } else {
@@ -531,7 +531,7 @@ function checkPastReservations() {
 }
 
 function askPrevFeedbackOrPurpose() {
-  if (checkShouldAskSurvey()) { askPrevFeedback(); }
+  if (!adminProxyPatient && checkShouldAskSurvey()) { askPrevFeedback(); }
   else { askPurposeOnly(); }
 }
 

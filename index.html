@@ -466,11 +466,6 @@ function showProfileEdit() {
 // リピーター：過去予約チェック → メニュー分岐
 // ============================================================
 function checkPastReservations() {
-  // 代理操作中はアンケート・前回施術確認をスキップして直接メニュー選択へ
-  if (adminProxyPatient) {
-    wait(function(){ askPurposeOnly(); }, 400);
-    return;
-  }
   showTyping();
   fetch(GAS_URL, { method:"POST", body:JSON.stringify({
     token:AUTH_TOKEN, action:"getPastReservations",
@@ -480,7 +475,7 @@ function checkPastReservations() {
   .then(function(d){
     removeTyping();
     if (!d.success || !d.found || !d.lastDate) {
-      wait(function(){ askPrevFeedbackOrPurpose(); }, 400);
+      wait(function(){ adminProxyPatient ? askPurposeOnly() : askPrevFeedbackOrPurpose(); }, 400);
       return;
     }
     reserv.visitCountThisMonth = d.visitCountThisMonth || 0;
@@ -491,7 +486,7 @@ function checkPastReservations() {
       // 3ヶ月以上→初回扱い
       reserv.visitCountThisMonth = 0;
       addBot("しばらくぶりですね 🌸\nまた来てくださってありがとうございます。");
-      wait(function(){ askPrevFeedbackOrPurpose(); }, 600);
+      wait(function(){ adminProxyPatient ? askPurposeOnly() : askPrevFeedbackOrPurpose(); }, 600);
 
     } else if (daysSince > 30) {
       // 1〜3ヶ月→初診メニュー選択
@@ -532,7 +527,7 @@ function checkPastReservations() {
       }, 600);
     }
   })
-  .catch(function(){ removeTyping(); wait(function(){ askPrevFeedbackOrPurpose(); }, 400); });
+  .catch(function(){ removeTyping(); wait(function(){ adminProxyPatient ? askPurposeOnly() : askPrevFeedbackOrPurpose(); }, 400); });
 }
 
 function askPrevFeedbackOrPurpose() {

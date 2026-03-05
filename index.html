@@ -1418,10 +1418,12 @@ function renderRegCal(viewDate) {
     if (isChecked)       cls += " cal-selected";
     if (isToday)         cls += " cal-today";
 
-    var onclick = (!isPast && !isSun)
-      ? ' onclick="toggleRegCalDate(''+dateStr+'')"' : '';
+    var onclickAttr = '';
+    if (!isPast && !isSun) {
+      onclickAttr = ' onclick="toggleRegCalDate(&apos;' + dateStr + '&apos;)"';
+    }
     var checkMark = isChecked ? '<span style="font-size:9px;display:block;color:white;line-height:1;">✓</span>' : '';
-    html += '<div class="'+cls+'"'+onclick+'>'+d+checkMark+'</div>';
+    html += '<div class="'+cls+'"'+onclickAttr+'>'+d+checkMark+'</div>';
   }
   html += '</div>';
 
@@ -1435,7 +1437,7 @@ function renderRegCal(viewDate) {
       var dw = ["日","月","火","水","木","金","土"][sd.getDay()];
       html += '<div style="font-size:12px;color:#374151;padding:2px 0;">'
         + '📅 '+(sd.getMonth()+1)+'月'+sd.getDate()+'日（'+dw+'）'
-        + '<span onclick="removeRegCalDate(''+ds+'')" style="cursor:pointer;color:#ef4444;margin-left:8px;font-size:11px;">✕</span>'
+        + '<span onclick="removeRegCalDate(&apos;'+ds+'&apos;)" style="cursor:pointer;color:#ef4444;margin-left:8px;font-size:11px;">✕</span>'
         + '</div>';
     });
     html += '<button class="admin-btn" style="width:100%;margin-top:10px;padding:10px;font-size:13px;" onclick="confirmRegDates()">'

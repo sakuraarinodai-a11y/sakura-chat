@@ -466,6 +466,11 @@ function showProfileEdit() {
 // リピーター：過去予約チェック → メニュー分岐
 // ============================================================
 function checkPastReservations() {
+  // 代理操作中はアンケート・前回施術確認をスキップして直接メニュー選択へ
+  if (adminProxyPatient) {
+    wait(function(){ askPurposeOnly(); }, 400);
+    return;
+  }
   showTyping();
   fetch(GAS_URL, { method:"POST", body:JSON.stringify({
     token:AUTH_TOKEN, action:"getPastReservations",

@@ -35,8 +35,15 @@
   .cbtn.gold { border-color:#d97706; color:#92400e; background:#fffbeb; }
   .cbtn.gold:hover { background:#fef3c7; }
   .slots { display:flex; flex-wrap:wrap; gap:8px; padding:0 16px 4px 56px; animation:up 0.3s ease; }
-  .slotbtn { padding:8px 14px; background:white; border:1.5px solid var(--pink); border-radius:20px; font-size:13px; color:var(--pink-dark); cursor:pointer; }
-  .slotbtn:hover { background:var(--pink-light); }
+  .slotbtn { padding:8px 14px; background:white; border:1.5px solid var(--pink); border-radius:20px; font-size:13px; color:var(--pink-dark); cursor:pointer; transition:all 0.15s; }
+  .slotbtn:hover { background:var(--pink-light); transform:translateY(-1px); box-shadow:0 2px 8px rgba(232,131,154,0.25); }
+  /* [変更] 時間帯グループUI */
+  .slots-grouped { padding:0 16px 4px 56px; animation:up 0.3s ease; display:flex; flex-direction:column; gap:10px; }
+  .slot-section { background:#fff5f7; border:1.5px solid #fce4ec; border-radius:14px; padding:10px 12px; }
+  .slot-section-header { display:flex; align-items:center; gap:6px; margin-bottom:8px; }
+  .slot-group-label { font-size:13px; font-weight:700; color:var(--pink-dark); }
+  .slot-group-range { font-size:11px; color:var(--gray); background:white; border:1px solid #fce4ec; border-radius:10px; padding:1px 7px; }
+  .slot-btn-row { display:flex; flex-wrap:wrap; gap:6px; }
   .cardwrap { padding:0 16px 4px 56px; animation:up 0.3s ease; }
   .card { background:linear-gradient(135deg,#fff5f7,#fde8ee); border:2px solid var(--pink-light); border-radius:16px; padding:16px; font-size:13px; }
   .card.gold { background:linear-gradient(135deg,#fffbeb,#fef3c7); border-color:#fcd34d; }
@@ -1091,33 +1098,46 @@ function loadSlots(date, zone) {
     }
     addBot("空きがございます 🌸\nご希望の時間をお選びください。");
     wait(function(){
-      var wrap=document.createElement("div"); wrap.className="slots";
-      filtered.slice(0,12).forEach(function(s){
-        var btn=document.createElement("button"); btn.className="slotbtn"; btn.textContent=s;
-        btn.onclick=function(){
-          wrap.querySelectorAll("button").forEach(function(b){ b.disabled=true; b.style.opacity="0.4"; });
-          onTimeSelect(s);
-        };
-        wrap.appendChild(btn);
+      // [変更] 時間帯グループ別UIに変更（午前・昼・夕方のセクション分け）
+      var wrap = document.createElement("div");
+      wrap.className = "slots-grouped";
+
+      var groups = [
+        { label:"🌅 午前", range:"8〜12時",  filter:function(h){ return h >= 8  && h < 12; } },
+        { label:"☀️ 昼",   range:"12〜15時", filter:function(h){ return h >= 12 && h < 15; } },
+        { label:"🌇 夕方", range:"15時〜",   filter:function(h){ return h >= 15; } },
+      ];
+
+      var hasAny = false;
+      groups.forEach(function(g){
+        var inGroup = filtered.filter(function(s){ return g.filter(parseInt(s.split(":")[0])); });
+        if (inGroup.length === 0) return;
+        hasAny = true;
+
+        var section = document.createElement("div");
+        section.className = "slot-section";
+
+        var header = document.createElement("div");
+        header.className = "slot-section-header";
+        header.innerHTML = '<span class="slot-group-label">' + g.label + '</span><span class="slot-group-range">' + g.range + '</span>';
+        section.appendChild(header);
+
+        var btnRow = document.createElement("div");
+        btnRow.className = "slot-btn-row";
+        inGroup.forEach(function(s){
+          var btn = document.createElement("button");
+          btn.className = "slotbtn";
+          btn.textContent = s;
+          btn.onclick = function(){
+            wrap.querySelectorAll("button").forEach(function(b){ b.disabled=true; b.style.opacity="0.4"; });
+            onTimeSelect(s);
+          };
+          btnRow.appendChild(btn);
+        });
+        section.appendChild(btnRow);
+        wrap.appendChild(section);
       });
-      if (filtered.length > 12) {
-        var moreBtn = document.createElement("button");
-        moreBtn.className="slotbtn"; moreBtn.textContent="もっと見る…";
-        moreBtn.style.borderStyle="dashed";
-        moreBtn.onclick=function(){
-          moreBtn.remove();
-          filtered.slice(12).forEach(function(s){
-            var btn=document.createElement("button"); btn.className="slotbtn"; btn.textContent=s;
-            btn.onclick=function(){
-              wrap.querySelectorAll("button").forEach(function(b){ b.disabled=true; b.style.opacity="0.4"; });
-              onTimeSelect(s);
-            };
-            wrap.appendChild(btn);
-          });
-          scrollB();
-        };
-        wrap.appendChild(moreBtn);
-      }
+
       document.getElementById("msgs").appendChild(wrap); scrollB();
     }, 600);
   })

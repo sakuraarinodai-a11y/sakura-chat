@@ -35,15 +35,8 @@
   .cbtn.gold { border-color:#d97706; color:#92400e; background:#fffbeb; }
   .cbtn.gold:hover { background:#fef3c7; }
   .slots { display:flex; flex-wrap:wrap; gap:8px; padding:0 16px 4px 56px; animation:up 0.3s ease; }
-  .slotbtn { padding:8px 14px; background:white; border:1.5px solid var(--pink); border-radius:20px; font-size:13px; color:var(--pink-dark); cursor:pointer; transition:all 0.15s; }
-  .slotbtn:hover { background:var(--pink-light); transform:translateY(-1px); box-shadow:0 2px 8px rgba(232,131,154,0.25); }
-  /* [変更] 時間帯グループUI */
-  .slots-grouped { padding:0 16px 4px 56px; animation:up 0.3s ease; display:flex; flex-direction:column; gap:10px; }
-  .slot-section { background:#fff5f7; border:1.5px solid #fce4ec; border-radius:14px; padding:10px 12px; }
-  .slot-section-header { display:flex; align-items:center; gap:6px; margin-bottom:8px; }
-  .slot-group-label { font-size:13px; font-weight:700; color:var(--pink-dark); }
-  .slot-group-range { font-size:11px; color:var(--gray); background:white; border:1px solid #fce4ec; border-radius:10px; padding:1px 7px; }
-  .slot-btn-row { display:flex; flex-wrap:wrap; gap:6px; }
+  .slotbtn { padding:8px 14px; background:white; border:1.5px solid var(--pink); border-radius:20px; font-size:13px; color:var(--pink-dark); cursor:pointer; }
+  .slotbtn:hover { background:var(--pink-light); }
   .cardwrap { padding:0 16px 4px 56px; animation:up 0.3s ease; }
   .card { background:linear-gradient(135deg,#fff5f7,#fde8ee); border:2px solid var(--pink-light); border-radius:16px; padding:16px; font-size:13px; }
   .card.gold { background:linear-gradient(135deg,#fffbeb,#fef3c7); border-color:#fcd34d; }
@@ -359,7 +352,7 @@ function finishSurvey() {
     addBot("ありがとうございます 🌸\n口コミ文を作成しています...");
     fetch(GAS_URL, {
       method:"POST",
-      body: JSON.stringify({ action:"generateReview", survey:surveyAnswers, patientName:patient.name }),
+      body: JSON.stringify({ token:AUTH_TOKEN, action:"generateReview", survey:surveyAnswers, patientName:patient.name }),
     })
     .then(function(r){return r.json();})
     .then(function(d) {
@@ -1030,7 +1023,8 @@ function askDate() {
     for (var i=1;i<=8;i++) {
       var d = new Date(today); d.setDate(today.getDate()+i);
       if (d.getDay()===0) continue;
-      choices.push({ label:(d.getMonth()+1)+"月"+d.getDate()+"日（"+days[d.getDay()]+"）", val:d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()) });
+      var suffix = (d.getDay() === 3 || d.getDay() === 6) ? "　※15時まで" : "";
+      choices.push({ label:(d.getMonth()+1)+"月"+d.getDate()+"日（"+days[d.getDay()]+"）"+suffix, val:d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()) });
     }
     choices.push({ label:"他の日を入力する", val:"other_date" });
     showChoices(choices, onDateSelect);
@@ -1063,16 +1057,7 @@ function askTimeZone(date) {
 // ============================================================
 function loadSlots(date, zone) {
   showTyping();
-  // [変更] getSuggestedSlots（全件取得＋フロントフィルター）から
-  //        getSuggestedSlotsByTimeZone（GAS側で時間帯フィルター）に統一。
-  //        フロントの evening=15時〜 と GAS側 evening=17時〜 の不一致も解消。
-  fetch(GAS_URL, { method:"POST", body:JSON.stringify({
-    token: AUTH_TOKEN,
-    action: "getSuggestedSlotsByTimeZone",
-    date: date,
-    menu: reserv.menu,
-    timeZone: zone || "any"  // [変更] zoneをGASに渡す
-  }) })
+  fetch(GAS_URL, { method:"POST", body:JSON.stringify({ token:AUTH_TOKEN, action:"getSuggestedSlots", date:date, menu:reserv.menu }) })
   .then(function(r){return r.json();})
   .then(function(data) {
     removeTyping();
@@ -1080,8 +1065,14 @@ function loadSlots(date, zone) {
       addBot("申し訳ありません。その日は空きがありませんでした 😢");
       wait(function(){ askDate(); }, 600); return;
     }
-    // [変更] GAS側でtimeZoneフィルター済みなのでフロントの重複フィルターを削除
-    var filtered = data.slots;
+    var allSlots = data.slots;
+    var filtered = allSlots.filter(function(s){
+      var h = parseInt(s.split(":")[0]);
+      if (zone === "morning") return h >= 8  && h < 12;
+      if (zone === "noon")    return h >= 12 && h < 15;
+      if (zone === "evening") return h >= 15;
+      return true;
+    });
     if (filtered.length === 0) {
       var zoneLabel = zone==="morning"?"午前中":zone==="noon"?"昼頃":"夕方以降";
       addBot(zoneLabel + "の空きがありませんでした 😢\n他の時間帯を確認しますか？");
@@ -1098,46 +1089,33 @@ function loadSlots(date, zone) {
     }
     addBot("空きがございます 🌸\nご希望の時間をお選びください。");
     wait(function(){
-      // [変更] 時間帯グループ別UIに変更（午前・昼・夕方のセクション分け）
-      var wrap = document.createElement("div");
-      wrap.className = "slots-grouped";
-
-      var groups = [
-        { label:"🌅 午前", range:"8〜12時",  filter:function(h){ return h >= 8  && h < 12; } },
-        { label:"☀️ 昼",   range:"12〜15時", filter:function(h){ return h >= 12 && h < 15; } },
-        { label:"🌇 夕方", range:"15時〜",   filter:function(h){ return h >= 15; } },
-      ];
-
-      var hasAny = false;
-      groups.forEach(function(g){
-        var inGroup = filtered.filter(function(s){ return g.filter(parseInt(s.split(":")[0])); });
-        if (inGroup.length === 0) return;
-        hasAny = true;
-
-        var section = document.createElement("div");
-        section.className = "slot-section";
-
-        var header = document.createElement("div");
-        header.className = "slot-section-header";
-        header.innerHTML = '<span class="slot-group-label">' + g.label + '</span><span class="slot-group-range">' + g.range + '</span>';
-        section.appendChild(header);
-
-        var btnRow = document.createElement("div");
-        btnRow.className = "slot-btn-row";
-        inGroup.forEach(function(s){
-          var btn = document.createElement("button");
-          btn.className = "slotbtn";
-          btn.textContent = s;
-          btn.onclick = function(){
-            wrap.querySelectorAll("button").forEach(function(b){ b.disabled=true; b.style.opacity="0.4"; });
-            onTimeSelect(s);
-          };
-          btnRow.appendChild(btn);
-        });
-        section.appendChild(btnRow);
-        wrap.appendChild(section);
+      var wrap=document.createElement("div"); wrap.className="slots";
+      filtered.slice(0,12).forEach(function(s){
+        var btn=document.createElement("button"); btn.className="slotbtn"; btn.textContent=s;
+        btn.onclick=function(){
+          wrap.querySelectorAll("button").forEach(function(b){ b.disabled=true; b.style.opacity="0.4"; });
+          onTimeSelect(s);
+        };
+        wrap.appendChild(btn);
       });
-
+      if (filtered.length > 12) {
+        var moreBtn = document.createElement("button");
+        moreBtn.className="slotbtn"; moreBtn.textContent="もっと見る…";
+        moreBtn.style.borderStyle="dashed";
+        moreBtn.onclick=function(){
+          moreBtn.remove();
+          filtered.slice(12).forEach(function(s){
+            var btn=document.createElement("button"); btn.className="slotbtn"; btn.textContent=s;
+            btn.onclick=function(){
+              wrap.querySelectorAll("button").forEach(function(b){ b.disabled=true; b.style.opacity="0.4"; });
+              onTimeSelect(s);
+            };
+            wrap.appendChild(btn);
+          });
+          scrollB();
+        };
+        wrap.appendChild(moreBtn);
+      }
       document.getElementById("msgs").appendChild(wrap); scrollB();
     }, 600);
   })
@@ -1166,7 +1144,7 @@ function onContactSelect(val) {
   if (val === "tel") {
     wait(function(){ addBot("電話番号を入力してください。\n（ハイフンなし・例：0789845788）"); step="tel"; enableInput(); }, 400);
   } else {
-    reserv.tel = "LINE登録";
+    reserv.tel = patient.tel || "";
     var wrap = document.createElement("div"); wrap.className = "cardwrap";
     var btn = document.createElement("button"); btn.className = "linebtn";
     btn.innerHTML = "💚 LINEでお友達登録する";
@@ -1250,7 +1228,8 @@ function confirmReservation() {
     } else {
       addBot("⚠️ 予約登録に問題が発生しました。\nお電話（078-984-5788）でご確認ください。","error"); showRestartButton();
     }
-  });
+  })
+  .catch(function(){ removeTyping(); addBot("⚠️ 通信エラーが発生しました。\nお電話（078-984-5788）でご確認ください。","error"); showRestartButton(); });
 }
 
 // ============================================================
@@ -1522,7 +1501,7 @@ function buildRegMenuUI() {
     '<div class="reg-category" id="cat-shijutsu">' +
     '<label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:#1e40af;cursor:pointer;">' +
     '<input type="checkbox" id="chk-shijutsu" onchange="toggleRegCategory(this,\'shijutsu\')" style="width:16px;height:16px;cursor:pointer;">施術</label>' +
-    '<div id="sub-shijutsu" style="display:none;margin:8px 0 0 22px;flex-wrap:wrap;gap:6px;">' + // [変更] display:none と display:flex の重複を修正（後者が優先されチェックしても非表示にならないバグ）
+    '<div id="sub-shijutsu" style="display:none;margin:8px 0 0 22px;display:flex;flex-wrap:wrap;gap:6px;">' +
     ['施術5分','施術15分','施術30分','施術60分','施術75分'].map(function(m){
       return '<button class="reg-sub-btn" data-group="shijutsu" data-val="'+m+'" onclick="selectRegSub(this)" style="padding:5px 10px;border:1.5px solid #bfdbfe;border-radius:8px;background:white;font-size:12px;cursor:pointer;color:#1e40af;">'+m+'</button>';
     }).join('') + '</div></div>' +
@@ -1559,7 +1538,7 @@ function buildRegMenuUI() {
     '<div class="reg-category" id="cat-jiko" style="margin-top:8px;">' +
     '<label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:#1e40af;cursor:pointer;">' +
     '<input type="checkbox" id="chk-jiko" onchange="toggleRegCategory(this,\'jiko\')" style="width:16px;height:16px;cursor:pointer;">交通事故</label>' +
-    '<div id="sub-jiko" style="display:none;margin:8px 0 0 22px;flex-wrap:wrap;gap:6px;">' + // [変更] display:none と display:flex の重複を修正（sub-shijutsuと同じバグ）
+    '<div id="sub-jiko" style="display:none;margin:8px 0 0 22px;display:flex;flex-wrap:wrap;gap:6px;">' +
     [['交通事故治療','交通事故治療'],['施術5分','交通事故治療（時短）']].map(function(m){
       return '<button class="reg-sub-btn" data-group="jiko" data-val="'+m[0]+'" onclick="selectRegSub(this)" style="padding:5px 10px;border:1.5px solid #bfdbfe;border-radius:8px;background:white;font-size:12px;cursor:pointer;color:#1e40af;">'+m[1]+'</button>';
     }).join('') + '</div></div>' +
@@ -1581,7 +1560,6 @@ var _regMenuList = [];  // [{menu:"施術30分", label:"施術30分"}, ...]
 
 function toggleRegCategory(chk, group) {
   var subDiv = document.getElementById('sub-' + group);
-  // [変更] display:noneと display:flex の重複CSSバグ対応：JS側で明示的にflexをセット
   if (subDiv) subDiv.style.display = chk.checked ? 'flex' : 'none';
 
   if (!chk.checked) {
@@ -1857,7 +1835,7 @@ function changeRegDayTimeZone(dateStr) {
       fetch(GAS_URL, { method:"POST", body:JSON.stringify({
         token: AUTH_TOKEN,
         action: "getSuggestedSlotsByTimeZone",
-        date: dateStr, menu: _reg.menu, timeZone: tz,
+        date: dateStr, menu: ((_reg.dateMenus && _reg.dateMenus[dateStr] && _reg.dateMenus[dateStr][0]) || _reg.menu), timeZone: tz,
       })})
       .then(function(r){ return r.json(); })
       .then(function(d){
@@ -2059,7 +2037,7 @@ function showCancelList(reservations) {
     var days = ["日","月","火","水","木","金","土"];
     var h = '<div class="card" id="cancel-card"><h3>📅 今後のご予約</h3>';
     reservations.forEach(function(r, i){
-      var d = new Date(r.date);
+      var d = new Date(r.date + "T00:00:00");
       var dayLabel = (d.getMonth()+1)+"月"+d.getDate()+"日（"+days[d.getDay()]+"） "+esc(r.time);
       h += '<div class="cancel-row" id="cancel-row-'+i+'">';
       h += '<label class="cancel-check-label">';
@@ -2662,7 +2640,7 @@ function renderAdminPatientCard(panel, d) {
     // 患者情報カード
     '<div class="admin-result" style="margin-bottom:12px;">'
     +   '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">'
-    +     '<span style="font-size:15px;font-weight:700;color:#e2e8f0;">👤 ' + esc(name) + '</span>'
+    +     '<span style="font-size:15px;font-weight:700;color:#1e40af;">👤 ' + esc(name) + '</span>'
     +     '<span style="font-size:11px;color:#6b7280;">No.' + esc(d.customerNo||"") + '</span>'
     +   '</div>'
     +   '<div class="arow"><span class="albl">フリガナ</span><span>' + esc(kana) + '</span></div>'
@@ -2790,7 +2768,7 @@ function adminShowReservations() {
     var days = ["日","月","火","水","木","金","土"];
     var html = '<div class="admin-result"><div style="font-size:12px;color:#1e40af;font-weight:700;margin-bottom:8px;">今後の予約（' + res.reservations.length + '件）</div>';
     res.reservations.forEach(function(r, i){
-      var dt = new Date(r.date);
+      var dt = new Date(r.date + "T00:00:00");
       var dlabel = (dt.getMonth()+1)+"月"+dt.getDate()+"日（"+days[dt.getDay()]+"） "+r.time;
       html += '<div class="arow" style="align-items:center;">'
         + '<span class="albl">' + esc(dlabel) + '</span>'
@@ -2872,7 +2850,7 @@ function submitAdminEdit() {
   var msg = document.getElementById("adm-edit-msg");
   msg.style.color = "#6b7280"; msg.textContent = "保存中...";
 
-  fetch(GAS_URL, { method:"POST", body:JSON.stringify(Object.assign({ token:AUTH_TOKEN, action:"registerPatient" }, newData)) })
+  fetch(GAS_URL, { method:"POST", body:JSON.stringify(Object.assign({ token:AUTH_TOKEN, action:"updatePatient" }, newData)) })
   .then(function(r){ return r.json(); })
   .then(function(res){
     if (res.success) {

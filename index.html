@@ -472,11 +472,10 @@ function askPurpose() {
   addBot("ご予約・ご相談はお気軽にどうぞ 🌸");
   wait(function() {
     var choices = [
-      { label:"📅 予約する",                          val:"reserve" },
-      { label:"📋 予約状況を確認したい",               val:"check" },
-      { label:"💎 月1回施療会員になって10%OFFしたい", val:"subsinfo" },
-      { label:"🚗 往診を希望したい",                   val:"visit" },
-      { label:"💬 その他・相談したい",                 val:"other" },
+      { label:"📅 予約する",                val:"reserve" },
+      { label:"📋 予約状況を確認したい",   val:"check" },
+      { label:"🚗 往診を希望したい",       val:"visit" },
+      { label:"💬 その他・相談したい",     val:"other" },
     ];
     if (patient.name) {
       choices.splice(2, 0, { label:"✏️ 登録情報を変更したい", val:"editprofile" });
@@ -2375,7 +2374,49 @@ function sendText() {
     patient.sei=reserv.sei; patient.mei=reserv.mei;
     patient.name=reserv.sei+(reserv.mei?" "+reserv.mei:"");
     saveData("sakura_patient", patient);
-    wait(function(){ addBot("フリガナを教えていただけますか？\n（例：ヤマダ タロウ）"); step="kana"; enableInput(); }, 400);
+    // 既存患者を検索してフリガナ候補を提示
+    addBot("お名前で確認しています 🔍");
+    fetch(GAS_URL, { method:"POST", body:JSON.stringify({ token:AUTH_TOKEN, action:"searchPatient", name:patient.name }) })
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if (d.success && d.found && d.patients && d.patients.length > 0) {
+          var pts = d.patients.slice(0, 5);
+          var choices = pts.map(function(pt, i){
+            var kana = ((pt.seiKana||"") + " " + (pt.meiKana||"")).trim();
+            var label = ((pt.sei||"") + (pt.mei?" "+pt.mei:"")).trim() || pt.name || "";
+            return { label:"👤 " + label + "（" + kana + "）", val:"pt_" + i };
+          });
+          choices.push({ label:"この中にいない", val:"pt_new" });
+          addBot("以下の登録が見つかりました。\nあなたはどちらですか？");
+          showChoices(choices, function(v){
+            if (v === "pt_new") {
+              wait(function(){ addBot("フリガナを教えていただけますか？\n（例：ヤマダ タロウ）"); step="kana"; enableInput(); }, 400);
+            } else {
+              var idx = parseInt(v.replace("pt_",""));
+              var found = pts[idx];
+              if (found) {
+                reserv.sei = found.sei || reserv.sei; reserv.mei = found.mei || "";
+                reserv.seiKana = found.seiKana || ""; reserv.meiKana = found.meiKana || "";
+                reserv.tel = found.tel || "";
+                patient.sei = reserv.sei; patient.mei = reserv.mei;
+                patient.seiKana = reserv.seiKana; patient.meiKana = reserv.meiKana;
+                patient.tel = reserv.tel; saveData("sakura_patient", patient);
+                addBot((reserv.sei||"") + (reserv.mei?" "+reserv.mei:"") + " さんですね 🌸");
+                if (reserv.tel) {
+                  wait(function(){ askMenuForNewUser(); }, 600);
+                } else {
+                  wait(function(){ showChoices([{label:"📱 電話番号を入力する",val:"tel"},{label:"💚 LINEでお友達登録する",val:"line"}],onContactSelect); }, 600);
+                }
+              }
+            }
+          });
+        } else {
+          wait(function(){ addBot("フリガナを教えていただけますか？\n（例：ヤマダ タロウ）"); step="kana"; enableInput(); }, 400);
+        }
+      })
+      .catch(function(){
+        wait(function(){ addBot("フリガナを教えていただけますか？\n（例：ヤマダ タロウ）"); step="kana"; enableInput(); }, 400);
+      });
   } else if (step==="kana") {
     step=""; var kp=text.trim().split(/[\s　]+/); reserv.seiKana=kp[0]||text; reserv.meiKana=kp[1]||"";
     // フリガナを即時保存

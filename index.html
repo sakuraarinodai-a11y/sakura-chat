@@ -186,6 +186,9 @@
   .memo-item-del:hover { color:#ef4444; }
   .memo-clear-btn { width:100%; padding:8px; background:white; border:1.5px solid #fca5a5; border-radius:8px; font-size:12px; color:#ef4444; cursor:pointer; margin-top:4px; }
   .memo-clear-btn:hover { background:#fee2e2; }
+  .memo-item.done { background:#f0fdf4; border-color:#86efac; opacity:0.8; }
+  .memo-item.done .memo-item-text { text-decoration:line-through; color:#6b7280; }
+  .memo-done-badge { display:inline-block; font-size:10px; font-weight:700; color:#15803d; background:#dcfce7; border-radius:4px; padding:1px 6px; margin-bottom:4px; }
 </style>
 </head>
 <body>
@@ -3265,7 +3268,9 @@ function renderMemoList() {
     return;
   }
   var html = memos.map(function(m){
-    return '<div class="memo-item">'
+    var isDone = m.status === 'done';
+    return '<div class="memo-item' + (isDone ? ' done' : '') + '">'
+      + (isDone ? '<div class="memo-done-badge">✅ 修正済み</div>' : '')
       + '<button class="memo-item-del" onclick="deleteMemoItem(' + m.id + ')">✕</button>'
       + '<div class="memo-item-text">' + esc(m.text) + '</div>'
       + '<div class="memo-item-meta">🕐 ' + esc(m.ts) + (m.ctx ? '<br>' + esc(m.ctx) : '') + '</div>'
@@ -3280,9 +3285,27 @@ document.getElementById("memo-inp").addEventListener("keydown", function(e){
   if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); addMemoItem(); }
 });
 
-// 初期化（バッジ更新＋サイドパネル初期表示）
+// GASのpending一覧と照合してdone状態を同期
+function syncMemoStatus() {
+  fetch(GAS_URL + '?action=memoStatus')
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      var pendingIds = (d.memos || []).map(function(m){ return String(m.id); });
+      var memos = loadMemos();
+      var changed = false;
+      memos.forEach(function(m){
+        var newStatus = (pendingIds.indexOf(String(m.id)) !== -1) ? 'pending' : 'done';
+        if (m.status !== newStatus) { m.status = newStatus; changed = true; }
+      });
+      if (changed) { saveData(MEMO_KEY, memos); renderMemoList(); updateMemoBadge(); }
+    })
+    .catch(function(){});
+}
+
+// 初期化（バッジ更新＋サイドパネル初期表示＋GASとdone状態同期）
 updateMemoBadge();
 renderMemoList();
+syncMemoStatus();
 
 </script>
 </body>

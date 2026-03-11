@@ -3166,6 +3166,8 @@ function saveMemos(memos) {
   saveData(MEMO_KEY, memos);
   renderMemoList();
   updateMemoBadge();
+  // GASスプレッドシートへ同期（エラーは無視）
+  fetch(GAS_URL, { method:"POST", body:JSON.stringify({ token:AUTH_TOKEN, action:"saveMemos", memos:memos }) }).catch(function(){});
 }
 
 function updateMemoBadge() {

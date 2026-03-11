@@ -630,26 +630,9 @@ function askPrevFeedbackOrPurpose() {
 
 // 1ヶ月以内リピーター用：メニューのみ選ばせる
 function askPurposeOnly() {
-  addBot("今日はどうしますか？ 🌸");
-  wait(function(){
-    showChoices([
-      { label:"痛み・不調を治したい",         val:"pain" },
-      { label:"酸素カプセル",                  val:"酸素カプセル" },
-      { label:"楽トレ（EMS）",                 val:"楽トレ" },
-      { label:"セルフトレーニング",            val:"セルフトレーニング" },
-      { label:"マンツーマントレーニング",      val:"マンツーマントレーニング" },
-    ], function(v){
-      if (v === "pain") {
-        reserv.menu = "初診（保険）";
-        addBot("施術（保険）で予約します 🌸");
-        wait(function(){ askWho(); }, 400);
-      } else {
-        reserv.menu = v;
-        addBot("「" + v + "」で予約します 🌸");
-        wait(function(){ askWho(); }, 400);
-      }
-    });
-  }, 600);
+  // 「今日はどうしますか？」を廃止 → メニュー未設定なら初診（保険）をデフォルトにして日付へ直行
+  if (!reserv.menu) { reserv.menu = "初診（保険）"; }
+  wait(function(){ askWho(); }, 400);
 }
 
 function askLocationAndMenu() {
@@ -939,8 +922,8 @@ function askRepeatMenu(lastMenu, useSame) {
     wait(function(){ askFamilyTogether(); }, 400);
     return;
   }
-  // 別メニューを選ぶ
-  addBot("今日はどうしますか？ 🌸");
+  // 別メニューを選ぶ（問診なし・日付へ直行）
+  addBot("メニューを選んでください 🌸");
   wait(function(){
     showChoices([
       { label:"痛み・不調を治したい",       val:"pain" },
@@ -949,13 +932,9 @@ function askRepeatMenu(lastMenu, useSame) {
       { label:"セルフトレーニング",          val:"セルフトレーニング" },
       { label:"マンツーマントレーニング",    val:"マンツーマントレーニング" },
     ], function(v){
-      if (v === "pain") {
-        wait(function(){ askLocationAndMenu(); }, 400);
-      } else {
-        reserv.menu = v;
-        addBot("「" + v + "」で予約します 🌸");
-        wait(function(){ askWho(); }, 400);
-      }
+      reserv.menu = (v === "pain") ? "初診（保険）" : v;
+      addBot("「" + reserv.menu + "」で予約します 🌸");
+      wait(function(){ askWho(); }, 400);
     });
   }, 600);
 }

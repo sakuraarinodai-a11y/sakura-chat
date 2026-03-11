@@ -231,6 +231,7 @@
         <button class="memo-add-btn" onclick="addMemoItem()">＋ メモを追加</button>
         <button class="memo-copy-btn" onclick="copyAllMemos()">📋 全コピー</button>
       </div>
+      <div id="memo-hint" style="display:none;margin-top:6px;font-size:11px;color:#b45309;background:#fef3c7;border-radius:6px;padding:4px 8px;">不具合・改善メモを5文字以上で入力してください</div>
     </div>
     <div class="memo-list" id="memo-list"></div>
   </div>
@@ -3221,6 +3222,14 @@ function addMemoItem() {
   var inp = document.getElementById("memo-inp");
   var text = inp.value.trim();
   if (!text) return;
+  // 明らかなテスト入力・短すぎる入力はスキップ
+  var testPatterns = /^(あ+|test|てすと|テスト|ok|OK|はい|いいえ|a+|ー+|…+|\.+|,+)$/i;
+  if (text.length < 5 || testPatterns.test(text)) {
+    inp.value = "";
+    var hint = document.getElementById("memo-hint");
+    if (hint) { hint.style.display = "block"; setTimeout(function(){ hint.style.display = "none"; }, 3000); }
+    return;
+  }
   var memos = loadMemos();
   var now = new Date();
   var ts = (now.getMonth()+1) + "/" + now.getDate() + " " + pad(now.getHours()) + ":" + pad(now.getMinutes());

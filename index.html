@@ -37,6 +37,31 @@
   .slots { display:flex; flex-wrap:wrap; gap:8px; padding:0 16px 4px 56px; animation:up 0.3s ease; }
   .slotbtn { padding:8px 14px; background:white; border:1.5px solid var(--pink); border-radius:20px; font-size:13px; color:var(--pink-dark); cursor:pointer; }
   .slotbtn:hover { background:var(--pink-light); }
+  /* カレンダーUI */
+  .cal-wrap { background:white; border-radius:14px; border:1.5px solid var(--pink-light); overflow:hidden; }
+  .cal-header { display:flex; align-items:center; justify-content:space-between; padding:10px 14px; background:linear-gradient(90deg,var(--pink),#f9a8d4); color:white; }
+  .cal-month { font-size:14px; font-weight:700; }
+  .cal-nav { background:rgba(255,255,255,0.3); border:none; color:white; font-size:16px; cursor:pointer; border-radius:6px; padding:2px 10px; }
+  .cal-nav:hover { background:rgba(255,255,255,0.5); }
+  .cal-nav-disabled { color:rgba(255,255,255,0.3); padding:2px 10px; font-size:16px; }
+  .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; padding:8px; background:#fdf2f8; }
+  .cal-dow { text-align:center; font-size:11px; font-weight:700; color:#9ca3af; padding:4px 0; }
+  .cal-dow.cal-sun { color:#f87171; }
+  .cal-empty { }
+  .cal-day { text-align:center; padding:4px 0; border-radius:8px; cursor:pointer; font-size:13px; font-weight:500; background:white; border:1px solid transparent; min-height:38px; display:flex; flex-direction:column; align-items:center; justify-content:center; transition:background 0.15s; }
+  .cal-day:hover { background:var(--pink-light); border-color:var(--pink); }
+  .cal-day.cal-today { border-color:var(--pink); background:#fce7f3; font-weight:700; }
+  .cal-day.cal-today span { color:var(--pink-dark); }
+  .cal-day.cal-disabled, .cal-day.cal-past, .cal-day.cal-sun { background:#f9fafb; color:#d1d5db; cursor:default; pointer-events:none; }
+  .cal-day.cal-sun span { color:#fca5a5; }
+  .cal-note { font-size:9px; color:#9ca3af; line-height:1; }
+  .cal-day.cal-selected { background:var(--pink) !important; border-color:var(--pink-dark) !important; }
+  .cal-day.cal-selected span { color:white; }
+  /* 時間グリッド */
+  .time-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
+  .time-btn { padding:9px 4px; background:white; border:1.5px solid var(--pink); border-radius:10px; font-size:13px; font-weight:600; color:var(--pink-dark); cursor:pointer; text-align:center; }
+  .time-btn:hover { background:var(--pink-light); }
+  .time-btn:disabled { opacity:0.35; cursor:default; }
   .cardwrap { padding:0 16px 4px 56px; animation:up 0.3s ease; }
   .card { background:linear-gradient(135deg,#fff5f7,#fde8ee); border:2px solid var(--pink-light); border-radius:16px; padding:16px; font-size:13px; }
   .card.gold { background:linear-gradient(135deg,#fffbeb,#fef3c7); border-color:#fcd34d; }
@@ -1119,20 +1144,107 @@ function askMenuForNewUser() {
 }
 
 function askDate() {
-  addBot("ご希望の日はいつですか？");
+  addBot("ご希望の日をカレンダーから選んでください。");
   wait(function() {
-    var today = new Date();
-    var days = ["日","月","火","水","木","金","土"];
-    var choices = [];
-    for (var i=1;i<=8;i++) {
-      var d = new Date(today); d.setDate(today.getDate()+i);
-      if (d.getDay()===0) continue;
-      var suffix = (d.getDay() === 3 || d.getDay() === 6) ? "　※15時まで" : "";
-      choices.push({ label:(d.getMonth()+1)+"月"+d.getDate()+"日（"+days[d.getDay()]+"）"+suffix, val:d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()) });
-    }
-    choices.push({ label:"他の日を入力する", val:"other_date" });
-    showChoices(choices, onDateSelect);
+    var wrap = document.createElement("div");
+    wrap.className = "cardwrap"; wrap.id = "cal-cardwrap";
+    wrap.innerHTML = buildCalendarHTML(new Date());
+    document.getElementById("msgs").appendChild(wrap);
+    scrollB();
   }, 600);
+}
+
+function buildCalendarHTML(baseDate) {
+  var today = new Date(); today.setHours(0,0,0,0);
+  var maxDate = new Date(today); maxDate.setDate(today.getDate() + 60);
+  var year = baseDate.getFullYear();
+  var month = baseDate.getMonth();
+  var firstDay = new Date(year, month, 1);
+  var lastDay = new Date(year, month + 1, 0);
+  var startDow = firstDay.getDay();
+
+  var html = '<div class="cal-wrap">';
+  // ヘッダー
+  html += '<div class="cal-header">';
+  var prevDate = new Date(year, month - 1, 1);
+  var prevY = prevDate.getFullYear(), prevM = prevDate.getMonth();
+  var prevDisabled = (prevY < today.getFullYear()) || (prevY === today.getFullYear() && prevM < today.getMonth());
+  html += prevDisabled
+    ? '<span class="cal-nav-disabled">＜</span>'
+    : '<button class="cal-nav" onclick="changeCalMonth(' + prevY + ',' + prevM + ')">＜</button>';
+  html += '<span class="cal-month">' + year + '年' + (month+1) + '月</span>';
+  var nextDate = new Date(year, month + 2, 1);
+  var nextDisabled = (new Date(year, month + 1, 1)) > maxDate;
+  html += nextDisabled
+    ? '<span class="cal-nav-disabled">＞</span>'
+    : '<button class="cal-nav" onclick="changeCalMonth(' + nextDate.getFullYear() + ',' + nextDate.getMonth() + ')">＞</button>';
+  html += '</div>';
+  // 曜日ヘッダー
+  html += '<div class="cal-grid">';
+  ['日','月','火','水','木','金','土'].forEach(function(d, i) {
+    html += '<div class="cal-dow' + (i===0?' cal-sun':'') + '">' + d + '</div>';
+  });
+  // 空白
+  for (var i = 0; i < startDow; i++) html += '<div class="cal-empty"></div>';
+  // 日付
+  for (var d = 1; d <= lastDay.getDate(); d++) {
+    var date = new Date(year, month, d); date.setHours(0,0,0,0);
+    var dow = date.getDay();
+    var dateStr = year + '-' + pad(month+1) + '-' + pad(d);
+    var cls = 'cal-day';
+    var disabled = (dow === 0) || (date < today) || (date > maxDate);
+    if (dow === 0) cls += ' cal-sun';
+    if (date < today) cls += ' cal-past';
+    var todayMs = today.getTime();
+    if (date.getTime() === todayMs) cls += ' cal-today';
+    var note = (dow === 3 || dow === 6) ? '<span class="cal-note">〜15時</span>' : '';
+    if (disabled) {
+      html += '<div class="' + cls + ' cal-disabled"><span>' + d + '</span>' + note + '</div>';
+    } else {
+      html += '<div class="' + cls + '" onclick="onCalDateSelect(\'' + dateStr + '\')">' +
+        '<span>' + d + '</span>' + note + '</div>';
+    }
+  }
+  html += '</div></div>';
+  // 手入力リンク
+  html += '<div style="text-align:center;padding:8px 0 4px;">' +
+    '<button style="background:none;border:none;font-size:12px;color:#9ca3af;cursor:pointer;text-decoration:underline;" ' +
+    'onclick="calManualInput()">日付を直接入力する</button></div>';
+  return html;
+}
+
+function changeCalMonth(year, month) {
+  var wrap = document.querySelector('#cal-cardwrap .cal-wrap');
+  if (wrap) {
+    var newHtml = buildCalendarHTML(new Date(year, month, 1));
+    var tmp = document.createElement('div'); tmp.innerHTML = newHtml;
+    wrap.parentElement.replaceChild(tmp.firstChild, wrap);
+  }
+}
+
+function calManualInput() {
+  var cw = document.getElementById('cal-cardwrap');
+  if (cw) cw.remove();
+  addBot("ご希望の日付を入力してください。\n（例：2026-03-15）");
+  step = "date"; enableInput();
+}
+
+function onCalDateSelect(dateStr) {
+  // カレンダーを選択状態に
+  var cw = document.getElementById('cal-cardwrap');
+  if (cw) {
+    cw.querySelectorAll('.cal-day:not(.cal-disabled)').forEach(function(el) {
+      el.onclick = null; el.style.cursor = 'default';
+    });
+    var d = new Date(dateStr + 'T00:00:00');
+    var target = cw.querySelector('[onclick*="' + dateStr + '"]');
+    if (target) { target.classList.add('cal-selected'); target.onclick = null; }
+  }
+  reserv.date = dateStr;
+  var d2 = new Date(dateStr + 'T00:00:00');
+  var days2 = ["日","月","火","水","木","金","土"];
+  addUser((d2.getMonth()+1) + "月" + d2.getDate() + "日（" + days2[d2.getDay()] + "）");
+  wait(function(){ askTimeZone(dateStr); }, 400);
 }
 
 function onDateSelect(val) {
@@ -1193,25 +1305,27 @@ function loadSlots(date, zone) {
     }
     addBot("空きがございます 🌸\nご希望の時間をお選びください。");
     wait(function(){
-      var wrap=document.createElement("div"); wrap.className="slots";
-      filtered.slice(0,12).forEach(function(s){
-        var btn=document.createElement("button"); btn.className="slotbtn"; btn.textContent=s;
+      var outer = document.createElement("div"); outer.className = "cardwrap";
+      var wrap = document.createElement("div"); wrap.className = "time-grid";
+      outer.appendChild(wrap);
+      filtered.slice(0,18).forEach(function(s){
+        var btn=document.createElement("button"); btn.className="time-btn"; btn.textContent=s;
         btn.onclick=function(){
-          wrap.querySelectorAll("button").forEach(function(b){ b.disabled=true; b.style.opacity="0.4"; });
+          outer.querySelectorAll("button").forEach(function(b){ b.disabled=true; });
           onTimeSelect(s);
         };
         wrap.appendChild(btn);
       });
-      if (filtered.length > 12) {
+      if (filtered.length > 18) {
         var moreBtn = document.createElement("button");
         moreBtn.className="slotbtn"; moreBtn.textContent="もっと見る…";
-        moreBtn.style.borderStyle="dashed";
+        moreBtn.style.cssText="grid-column:1/-1;border-style:dashed;margin-top:4px;";
         moreBtn.onclick=function(){
           moreBtn.remove();
-          filtered.slice(12).forEach(function(s){
-            var btn=document.createElement("button"); btn.className="slotbtn"; btn.textContent=s;
+          filtered.slice(18).forEach(function(s){
+            var btn=document.createElement("button"); btn.className="time-btn"; btn.textContent=s;
             btn.onclick=function(){
-              wrap.querySelectorAll("button").forEach(function(b){ b.disabled=true; b.style.opacity="0.4"; });
+              outer.querySelectorAll("button").forEach(function(b){ b.disabled=true; });
               onTimeSelect(s);
             };
             wrap.appendChild(btn);
@@ -1220,7 +1334,7 @@ function loadSlots(date, zone) {
         };
         wrap.appendChild(moreBtn);
       }
-      document.getElementById("msgs").appendChild(wrap); scrollB();
+      document.getElementById("msgs").appendChild(outer); scrollB();
     }, 600);
   })
   .catch(function(){ removeTyping(); addBot("空き時間の確認でエラーが発生しました 😢", "error"); });

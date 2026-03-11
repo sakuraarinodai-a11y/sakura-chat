@@ -141,13 +141,47 @@
   .admin-modal .mrow { display:flex; gap:8px; }
   .admin-proxy-bar { background:#fef9c3; border:1px solid #fde047; border-radius:10px; padding:8px 12px; font-size:12px; color:#713f12; margin-bottom:8px; display:flex; align-items:center; justify-content:space-between; }
   .admin-proxy-bar button { background:#dc2626; color:white; border:none; border-radius:6px; padding:4px 10px; font-size:11px; cursor:pointer; }
+
+  /* ===== バージョン表示 ===== */
+  .ver-badge { font-size:10px; color:rgba(255,255,255,0.6); margin-top:2px; letter-spacing:0.3px; }
+
+  /* ===== 不具合メモ フローティングボタン ===== */
+  #memo-fab { position:fixed; bottom:80px; right:16px; width:44px; height:44px; background:#f59e0b; border:none; border-radius:50%; font-size:20px; cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,0.25); z-index:200; display:flex; align-items:center; justify-content:center; transition:transform 0.2s; }
+  #memo-fab:hover { transform:scale(1.1); }
+  #memo-fab .memo-count { position:absolute; top:-4px; right:-4px; background:#ef4444; color:white; font-size:10px; font-weight:700; width:18px; height:18px; border-radius:50%; display:flex; align-items:center; justify-content:center; }
+
+  /* ===== 不具合メモ パネル ===== */
+  #memo-panel { position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:300; display:none; align-items:flex-end; justify-content:center; }
+  #memo-panel.open { display:flex; }
+  .memo-box { background:white; width:100%; max-width:480px; max-height:85vh; border-radius:20px 20px 0 0; display:flex; flex-direction:column; overflow:hidden; }
+  .memo-hdr { padding:16px 20px 12px; border-bottom:1px solid #fde68a; display:flex; align-items:center; justify-content:space-between; background:#fffbeb; flex-shrink:0; }
+  .memo-hdr h3 { font-size:15px; font-weight:700; color:#92400e; }
+  .memo-hdr-right { display:flex; align-items:center; gap:8px; }
+  .memo-close { background:none; border:none; font-size:20px; cursor:pointer; color:#6b7280; line-height:1; padding:0; }
+  .memo-input-area { padding:12px 16px; border-bottom:1px solid #fef3c7; flex-shrink:0; }
+  .memo-input-area textarea { width:100%; border:1.5px solid #fcd34d; border-radius:10px; padding:10px 12px; font-size:13px; font-family:inherit; resize:none; outline:none; background:#fffbeb; color:#1f2937; line-height:1.6; }
+  .memo-input-area textarea:focus { border-color:#f59e0b; }
+  .memo-input-row { display:flex; gap:8px; margin-top:8px; }
+  .memo-add-btn { flex:1; padding:9px; background:#f59e0b; color:white; border:none; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; }
+  .memo-add-btn:hover { background:#d97706; }
+  .memo-copy-btn { padding:9px 14px; background:white; border:1.5px solid #fcd34d; border-radius:8px; font-size:12px; color:#92400e; cursor:pointer; white-space:nowrap; }
+  .memo-copy-btn:hover { background:#fef3c7; }
+  .memo-list { overflow-y:auto; padding:8px 16px 16px; flex:1; }
+  .memo-empty { text-align:center; color:#9ca3af; font-size:13px; padding:24px 0; }
+  .memo-item { background:#fffbeb; border:1px solid #fde68a; border-radius:10px; padding:10px 12px; margin-bottom:8px; position:relative; }
+  .memo-item-text { font-size:13px; color:#1f2937; line-height:1.7; white-space:pre-wrap; word-break:break-word; padding-right:28px; }
+  .memo-item-meta { font-size:10px; color:#9ca3af; margin-top:4px; }
+  .memo-item-del { position:absolute; top:8px; right:8px; background:none; border:none; font-size:16px; color:#d1d5db; cursor:pointer; line-height:1; padding:2px; }
+  .memo-item-del:hover { color:#ef4444; }
+  .memo-clear-btn { width:100%; padding:8px; background:white; border:1.5px solid #fca5a5; border-radius:8px; font-size:12px; color:#ef4444; cursor:pointer; margin-top:4px; }
+  .memo-clear-btn:hover { background:#fee2e2; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="header">
     <div class="hicon" id="hicon-logo" onclick="onLogoTap()" style="cursor:pointer;user-select:none;">🌸</div>
-    <div class="htxt"><h1>サクラ整骨院</h1><p>AI予約アシスタント</p></div>
+    <div class="htxt"><h1>サクラ整骨院</h1><p>AI予約アシスタント</p><div class="ver-badge" id="ver-label"></div></div>
     <div class="hstatus"><div class="dot"></div>受付中 <span id="admin-panel-btn" style="display:none;cursor:pointer;margin-left:6px;" onclick="renderAdminPanel()">🛠</span></div>
     <button onclick="hardRestart()" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);color:white;font-size:11px;padding:5px 10px;border-radius:12px;cursor:pointer;white-space:nowrap;flex-shrink:0;">🔄 最初から</button>
   </div>
@@ -162,6 +196,32 @@
   </div>
 </div>
 
+<!-- 不具合メモ フローティングボタン -->
+<button id="memo-fab" onclick="toggleMemoPanelOpen()" title="不具合メモ">
+  📝<span class="memo-count" id="memo-count" style="display:none;">0</span>
+</button>
+
+<!-- 不具合メモ パネル -->
+<div id="memo-panel" onclick="onMemoPanelBg(event)">
+  <div class="memo-box">
+    <div class="memo-hdr">
+      <h3>📝 不具合・改善メモ</h3>
+      <div class="memo-hdr-right">
+        <button class="memo-copy-btn" onclick="copyAllMemos()">📋 全コピー</button>
+        <button class="memo-close" onclick="toggleMemoPanelOpen()">✕</button>
+      </div>
+    </div>
+    <div class="memo-input-area">
+      <textarea id="memo-inp" rows="3" placeholder="気になった箇所・おかしい動作をメモしてください&#10;例：予約確認ボタンを押したら画面が止まった"></textarea>
+      <div class="memo-input-row">
+        <button class="memo-add-btn" onclick="addMemoItem()">＋ メモを追加</button>
+        <button class="memo-copy-btn" onclick="copyAllMemos()">📋 全コピー</button>
+      </div>
+    </div>
+    <div class="memo-list" id="memo-list"></div>
+  </div>
+</div>
+
 <script>
 // ============================================================
 // ユーティリティ（先頭定義）
@@ -173,6 +233,9 @@ function pad(n){ return ("0"+n).slice(-2); }
 function row(l,v){ return '<div class="row"><span class="lbl">'+l+'</span><span>'+esc(v)+'</span></div>'; }
 function saveData(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){} }
 function loadData(k){ try{var d=localStorage.getItem(k);return d?JSON.parse(d):null;}catch(e){return null;} }
+
+var APP_VERSION = "v1.1  2026-03-11";
+document.getElementById("ver-label").textContent = APP_VERSION;
 
 var GAS_URL    = "https://script.google.com/macros/s/AKfycbyfHn9LJJMs7KQNi0rxTVUTwvOlma_VwM8sXdabL693gx9h1xguR-vibe3D8MbZseR6/exec";
 var AUTH_TOKEN = "Sk@2026_aRiNo#dAi";
@@ -3037,6 +3100,111 @@ function cancelAdminLogin() {
   addBot("こんにちは！\nサクラ整骨院のAIアシスタントです 🌸");
   wait(function(){ askPurpose(); }, 600);
 }
+
+// ============================================================
+// 不具合メモ機能
+// ============================================================
+var MEMO_KEY = "sakura_debug_memos";
+
+function loadMemos() {
+  return loadData(MEMO_KEY) || [];
+}
+
+function saveMemos(memos) {
+  saveData(MEMO_KEY, memos);
+  renderMemoList();
+  updateMemoBadge();
+}
+
+function updateMemoBadge() {
+  var memos = loadMemos();
+  var badge = document.getElementById("memo-count");
+  if (!badge) return;
+  if (memos.length > 0) {
+    badge.textContent = memos.length;
+    badge.style.display = "flex";
+  } else {
+    badge.style.display = "none";
+  }
+}
+
+function toggleMemoPanelOpen() {
+  var panel = document.getElementById("memo-panel");
+  if (panel.classList.contains("open")) {
+    panel.classList.remove("open");
+  } else {
+    panel.classList.add("open");
+    renderMemoList();
+    setTimeout(function(){ document.getElementById("memo-inp").focus(); }, 200);
+  }
+}
+
+function onMemoPanelBg(e) {
+  if (e.target === document.getElementById("memo-panel")) toggleMemoPanelOpen();
+}
+
+function addMemoItem() {
+  var inp = document.getElementById("memo-inp");
+  var text = inp.value.trim();
+  if (!text) return;
+  var memos = loadMemos();
+  var now = new Date();
+  var ts = (now.getMonth()+1) + "/" + now.getDate() + " " + pad(now.getHours()) + ":" + pad(now.getMinutes());
+  memos.unshift({ text: text, ts: ts, id: Date.now() });
+  saveMemos(memos);
+  inp.value = "";
+  inp.focus();
+}
+
+function deleteMemoItem(id) {
+  var memos = loadMemos().filter(function(m){ return m.id !== id; });
+  saveMemos(memos);
+}
+
+function clearAllMemos() {
+  if (!confirm("すべてのメモを削除しますか？")) return;
+  saveMemos([]);
+}
+
+function copyAllMemos() {
+  var memos = loadMemos();
+  if (memos.length === 0) { alert("メモがありません"); return; }
+  var text = "【不具合・改善メモ】\n\n" + memos.map(function(m, i){
+    return (i+1) + ". [" + m.ts + "]\n" + m.text;
+  }).join("\n\n");
+  navigator.clipboard.writeText(text).then(function(){
+    var btn = document.querySelector(".memo-copy-btn");
+    var orig = btn ? btn.textContent : "";
+    if (btn) { btn.textContent = "✓ コピー完了"; setTimeout(function(){ btn.textContent = orig; }, 2000); }
+  }).catch(function(){ alert("コピーに失敗しました"); });
+}
+
+function renderMemoList() {
+  var list = document.getElementById("memo-list");
+  if (!list) return;
+  var memos = loadMemos();
+  if (memos.length === 0) {
+    list.innerHTML = '<div class="memo-empty">メモはまだありません 📝<br><span style="font-size:12px;">気になった点をどんどん記録してください</span></div>';
+    return;
+  }
+  var html = memos.map(function(m){
+    return '<div class="memo-item">'
+      + '<button class="memo-item-del" onclick="deleteMemoItem(' + m.id + ')">✕</button>'
+      + '<div class="memo-item-text">' + esc(m.text) + '</div>'
+      + '<div class="memo-item-meta">🕐 ' + esc(m.ts) + '</div>'
+      + '</div>';
+  }).join("");
+  html += '<button class="memo-clear-btn" onclick="clearAllMemos()">🗑 すべて削除</button>';
+  list.innerHTML = html;
+}
+
+// メモ入力欄でCtrl+Enterで追加
+document.getElementById("memo-inp").addEventListener("keydown", function(e){
+  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); addMemoItem(); }
+});
+
+// 初期バッジ更新
+updateMemoBadge();
 
 </script>
 </body>

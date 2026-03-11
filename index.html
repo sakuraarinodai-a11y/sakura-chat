@@ -57,11 +57,23 @@
   .cal-note { font-size:9px; color:#9ca3af; line-height:1; }
   .cal-day.cal-selected { background:var(--pink) !important; border-color:var(--pink-dark) !important; }
   .cal-day.cal-selected span { color:white; }
-  /* 時間グリッド */
+  /* 時間グリッド（旧） */
   .time-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
   .time-btn { padding:9px 4px; background:white; border:1.5px solid var(--pink); border-radius:10px; font-size:13px; font-weight:600; color:var(--pink-dark); cursor:pointer; text-align:center; }
   .time-btn:hover { background:var(--pink-light); }
   .time-btn:disabled { opacity:0.35; cursor:default; }
+  /* タイムスケジュール表示 */
+  .time-sched { display:flex; flex-direction:column; gap:2px; }
+  .time-sched-row { display:flex; align-items:flex-start; gap:8px; padding:5px 0; border-bottom:1px solid #fce7f3; }
+  .time-sched-row:last-child { border-bottom:none; }
+  .time-sched-label { font-size:11px; font-weight:700; color:#9ca3af; width:28px; padding-top:7px; flex-shrink:0; text-align:right; }
+  .time-sched-btns { display:flex; flex-wrap:wrap; gap:4px; flex:1; }
+  .time-btn-main { padding:7px 11px; background:white; border:1.5px solid var(--pink); border-radius:10px; font-size:13px; font-weight:600; color:var(--pink-dark); cursor:pointer; }
+  .time-btn-main:hover { background:var(--pink-light); }
+  .time-btn-main:disabled { opacity:0.35; cursor:default; }
+  .time-btn-sub { padding:5px 8px; background:#fdf2f8; border:1px solid #fce7f3; border-radius:8px; font-size:11px; color:#be185d; cursor:pointer; }
+  .time-btn-sub:hover { background:#fce7f3; }
+  .time-btn-sub:disabled { opacity:0.35; cursor:default; }
   .cardwrap { padding:0 16px 4px 56px; animation:up 0.3s ease; }
   .card { background:linear-gradient(135deg,#fff5f7,#fde8ee); border:2px solid var(--pink-light); border-radius:16px; padding:16px; font-size:13px; }
   .card.gold { background:linear-gradient(135deg,#fffbeb,#fef3c7); border-color:#fcd34d; }
@@ -1306,34 +1318,44 @@ function loadSlots(date, zone) {
     addBot("空きがございます 🌸\nご希望の時間をお選びください。");
     wait(function(){
       var outer = document.createElement("div"); outer.className = "cardwrap";
-      var wrap = document.createElement("div"); wrap.className = "time-grid";
-      outer.appendChild(wrap);
-      filtered.slice(0,18).forEach(function(s){
-        var btn=document.createElement("button"); btn.className="time-btn"; btn.textContent=s;
-        btn.onclick=function(){
-          outer.querySelectorAll("button").forEach(function(b){ b.disabled=true; });
+      var sched = document.createElement("div"); sched.className = "time-sched";
+      outer.appendChild(sched);
+
+      // 時間ごとにグループ化
+      var hourGroups = {};
+      filtered.forEach(function(s){
+        var h = parseInt(s.split(":")[0]);
+        if (!hourGroups[h]) hourGroups[h] = [];
+        hourGroups[h].push(s);
+      });
+
+      function makeTimeBtn(s, cls) {
+        var btn = document.createElement("button");
+        btn.className = cls; btn.textContent = s;
+        btn.onclick = function(){
+          outer.querySelectorAll("button").forEach(function(b){ b.disabled = true; });
           onTimeSelect(s);
         };
-        wrap.appendChild(btn);
-      });
-      if (filtered.length > 18) {
-        var moreBtn = document.createElement("button");
-        moreBtn.className="slotbtn"; moreBtn.textContent="もっと見る…";
-        moreBtn.style.cssText="grid-column:1/-1;border-style:dashed;margin-top:4px;";
-        moreBtn.onclick=function(){
-          moreBtn.remove();
-          filtered.slice(18).forEach(function(s){
-            var btn=document.createElement("button"); btn.className="time-btn"; btn.textContent=s;
-            btn.onclick=function(){
-              outer.querySelectorAll("button").forEach(function(b){ b.disabled=true; });
-              onTimeSelect(s);
-            };
-            wrap.appendChild(btn);
-          });
-          scrollB();
-        };
-        wrap.appendChild(moreBtn);
+        return btn;
       }
+
+      Object.keys(hourGroups).sort(function(a,b){ return a-b; }).forEach(function(h){
+        var slots = hourGroups[h];
+        var mainSlots = slots.filter(function(s){ var m=parseInt(s.split(":")[1]); return m===0||m===30; });
+        var subSlots  = slots.filter(function(s){ var m=parseInt(s.split(":")[1]); return m!==0&&m!==30; });
+
+        var row = document.createElement("div"); row.className = "time-sched-row";
+        var lbl = document.createElement("div"); lbl.className = "time-sched-label";
+        lbl.textContent = h + "時";
+        row.appendChild(lbl);
+
+        var btns = document.createElement("div"); btns.className = "time-sched-btns";
+        mainSlots.forEach(function(s){ btns.appendChild(makeTimeBtn(s, "time-btn-main")); });
+        subSlots.forEach(function(s){  btns.appendChild(makeTimeBtn(s, "time-btn-sub"));  });
+        row.appendChild(btns);
+        sched.appendChild(row);
+      });
+
       document.getElementById("msgs").appendChild(outer); scrollB();
     }, 600);
   })

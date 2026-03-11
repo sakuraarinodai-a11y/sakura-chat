@@ -428,36 +428,69 @@ function surveyStars() {
 
 function finishSurvey() {
   if (surveyAnswers.stars >= 4) {
-    addBot("ありがとうございます 🌸\n口コミ文を作成しています...");
+    // IDを付けて「作成中」メッセージを追加（後で特定して削除するため）
+    var w = document.createElement("div"); w.className = "bw"; w.id = "review-generating-msg";
+    w.innerHTML = '<div class="av">🌸</div><div class="bub bot">' + esc("ありがとうございます 🌸\n口コミ文を作成しています...") + '</div>';
+    document.getElementById("msgs").appendChild(w); scrollB();
     fetch(GAS_URL, {
       method:"POST",
       body: JSON.stringify({ token:AUTH_TOKEN, action:"generateReview", survey:surveyAnswers, patientName:patient.name }),
     })
     .then(function(r){return r.json();})
     .then(function(d) {
-      var msgs = document.getElementById("msgs");
-      msgs.lastElementChild.remove();
-      if (d.success) {
+      // IDで特定して削除（lastElementChildに依存しない）
+      var loadingMsg = document.getElementById("review-generating-msg");
+      if (loadingMsg) loadingMsg.remove();
+      if (d.success && d.review) {
         addBot("口コミ文をご用意しました 🌸\nそのままご利用いただいても、変更していただいても構いません。");
         wait(function() {
+          var reviewText = d.review;
           var wrap = document.createElement("div");
           wrap.className = "cardwrap";
           wrap.innerHTML = '<div class="card">'
             + '<h3>📝 口コミサンプル</h3>'
-            + '<p style="font-size:13px;line-height:1.8;color:#374151;">' + esc(d.review) + '</p>'
+            + '<p id="review-text" style="font-size:13px;line-height:1.8;color:#374151;">' + esc(reviewText) + '</p>'
             + '<div class="btnrow">'
-            + '<a href="https://g.page/r/Cc0rd9i5x96tEAE/review" target="_blank" class="btnok" style="text-decoration:none;">Googleに投稿する 👉</a>'
+            + '<a href="https://g.page/r/Cc0rd9i5x96tEAE/review" target="_blank" class="btnok" style="text-decoration:none;" onclick="copyReviewText()">'
+              + 'コピーしてGoogleに投稿する 👉</a>'
             + '<button class="btnng" onclick="skipReview()">またの機会に</button>'
-            + '</div></div>';
+            + '</div>'
+            + '<p style="font-size:11px;color:#9ca3af;margin-top:8px;">※ 投稿ページが開いたらそのまま貼り付けてください</p>'
+            + '</div>';
           document.getElementById("msgs").appendChild(wrap);
           scrollB();
         }, 400);
-      } else { wait(function(){ askPurpose(); }, 600); }
+      } else {
+        addBot("口コミ文の作成に失敗しました。\nお手数ですがまた後ほどご利用ください。");
+        wait(function(){ askPurpose(); }, 1200);
+      }
+    })
+    .catch(function() {
+      var loadingMsg = document.getElementById("review-generating-msg");
+      if (loadingMsg) loadingMsg.remove();
+      addBot("通信エラーが発生しました。\nお手数ですがまた後ほどご利用ください。");
+      wait(function(){ askPurpose(); }, 1200);
     });
   } else {
     addBot("ご意見をありがとうございます 🌸\nスタッフに必ずお伝えします。");
     fetch(GAS_URL, { method:"POST", body:JSON.stringify({ token:AUTH_TOKEN, action:"notifyStaff", type:"low_rating", survey:surveyAnswers, patient:patient.name }) });
     wait(function(){ askPurpose(); }, 800);
+  }
+}
+
+function copyReviewText() {
+  var el = document.getElementById("review-text");
+  if (!el) return;
+  var text = el.textContent || el.innerText || "";
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).catch(function(){});
+  } else {
+    try {
+      var ta = document.createElement("textarea");
+      ta.value = text; ta.style.position = "fixed"; ta.style.top = "-9999px";
+      document.body.appendChild(ta); ta.select(); document.execCommand("copy");
+      document.body.removeChild(ta);
+    } catch(e) {}
   }
 }
 

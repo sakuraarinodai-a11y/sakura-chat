@@ -716,7 +716,7 @@ function askPrevFeedbackOrPurpose() {
 // 1ヶ月以内リピーター用：メニューのみ選ばせる
 function askPurposeOnly() {
   // 「今日はどうしますか？」を廃止 → メニュー未設定なら初診（保険）をデフォルトにして日付へ直行
-  if (!reserv.menu) { reserv.menu = "初診（保険）"; }
+  if (!reserv.menu) { reserv.menu = "おすすめ初診"; }
   wait(function(){ askWho(); }, 400);
 }
 
@@ -967,16 +967,7 @@ function onMenuSelect(val) {
     wait(function() {
       addBot("ご希望のメニューをお選びください。");
       wait(function() {
-        showChoices([
-          { label:"初診（保険）", val:"初診（保険）" },
-          { label:"施術15分　2,200円", val:"施術15分" },
-          { label:"施術30分　4,400円", val:"施術30分" },
-          { label:"施術60分　8,000円", val:"施術60分" },
-          { label:"施術75分　10,000円", val:"施術75分" },
-          { label:"楽トレ（EMS）390円", val:"楽トレ" },
-          { label:"酸素カプセル　390円", val:"酸素カプセル" },
-          { label:"マンツーマントレーニング", val:"マンツーマントレーニング" },
-        ], onMenuSelect);
+        showChoices(buildMenuChoices(), onMenuSelect);
       }, 600);
     }, 400);
     return;
@@ -1010,14 +1001,8 @@ function askRepeatMenu(lastMenu, useSame) {
   // 別メニューを選ぶ（問診なし・日付へ直行）
   addBot("メニューを選んでください 🌸");
   wait(function(){
-    showChoices([
-      { label:"痛み・不調を治したい",       val:"pain" },
-      { label:"酸素カプセル",                val:"酸素カプセル" },
-      { label:"楽トレ（EMS）",               val:"楽トレ" },
-      { label:"セルフトレーニング",          val:"セルフトレーニング" },
-      { label:"マンツーマントレーニング",    val:"マンツーマントレーニング" },
-    ], function(v){
-      reserv.menu = (v === "pain") ? "初診（保険）" : v;
+    showChoices(buildMenuChoices(), function(v){
+      reserv.menu = v;
       addBot("「" + reserv.menu + "」で予約します 🌸");
       wait(function(){ askWho(); }, 400);
     });
@@ -1136,23 +1121,24 @@ function askFamilyTogether() {
 function askMenuForNewUser() {
   addBot("ご希望のメニューをお選びください 🌸");
   wait(function(){
-    showChoices([
-      { label:"痛み・不調を治したい",       val:"pain" },
-      { label:"酸素カプセル",                val:"酸素カプセル" },
-      { label:"楽トレ（EMS）",               val:"楽トレ" },
-      { label:"セルフトレーニング",          val:"セルフトレーニング" },
-      { label:"マンツーマントレーニング",    val:"マンツーマントレーニング" },
-    ], function(v){
-      if (v === "pain") {
-        reserv.menu = "初診（保険）";
-        addBot("施術（保険）で予約します 🌸");
-      } else {
-        reserv.menu = v;
-        addBot("「" + v + "」で予約します 🌸");
-      }
+    showChoices(buildMenuChoices(), function(v){
+      reserv.menu = v;
+      addBot("「" + v + "」で予約します 🌸");
       wait(function(){ askFamilyTogether(); }, 400);
     });
   }, 600);
+}
+
+function buildMenuChoices() {
+  return [
+    { label:"⭐ おすすめ初診　3,000円〜10,000円", val:"おすすめ初診" },
+    { label:"初診（保険）　3,000円",               val:"初診（保険）" },
+    { label:"施療5分（保険）",                     val:"施術5分" },
+    { label:"施療15分",                            val:"施術15分" },
+    { label:"施療30分",                            val:"施術30分" },
+    { label:"施療60分",                            val:"施術60分" },
+    { label:"施療75分",                            val:"施術75分" },
+  ];
 }
 
 function askDate() {

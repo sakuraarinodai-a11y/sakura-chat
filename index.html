@@ -1256,13 +1256,13 @@ function onCalDateSelect(dateStr) {
   var d2 = new Date(dateStr + 'T00:00:00');
   var days2 = ["日","月","火","水","木","金","土"];
   addUser((d2.getMonth()+1) + "月" + d2.getDate() + "日（" + days2[d2.getDay()] + "）");
-  wait(function(){ askTimeZone(dateStr); }, 400);
+  wait(function(){ loadSlots(dateStr, "any"); }, 400);
 }
 
 function onDateSelect(val) {
   if (val === "other_date") { wait(function(){ addBot("ご希望の日付を入力してください。\n（例：2026-03-15）"); step="date"; enableInput(); }, 400); return; }
   reserv.date = val;
-  wait(function(){ askTimeZone(val); }, 400);
+  wait(function(){ loadSlots(val, "any"); }, 400);
 }
 
 function askTimeZone(date) {
@@ -2635,7 +2635,7 @@ function sendText() {
       wait(function(){ askFamilyTogether(); }, 400);
     }
   } else if (step==="date") {
-    step=""; reserv.date=text; wait(function(){ askTimeZone(text); }, 400);
+    step=""; reserv.date=text; wait(function(){ loadSlots(text, "any"); }, 400);
   } else if (step==="family_name") {
     step=""; var fp=text.trim().split(/[\s　]+/);
     window._tmpFamily={name:text.trim(),sei:fp[0]||text,mei:fp[1]||"",seiKana:"",meiKana:"",tel:""};

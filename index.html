@@ -245,7 +245,8 @@ function row(l,v){ return '<div class="row"><span class="lbl">'+l+'</span><span>
 function saveData(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){} }
 function loadData(k){ try{var d=localStorage.getItem(k);return d?JSON.parse(d):null;}catch(e){return null;} }
 
-var APP_VERSION = "v1.1  2026-03-11";
+var _vd = new Date();
+var APP_VERSION = "v1.1  2026-03-11 " + String(_vd.getHours()).padStart(2,"0") + ":" + String(_vd.getMinutes()).padStart(2,"0");
 document.getElementById("ver-label").textContent = APP_VERSION;
 
 var GAS_URL    = "https://script.google.com/macros/s/AKfycbyfHn9LJJMs7KQNi0rxTVUTwvOlma_VwM8sXdabL693gx9h1xguR-vibe3D8MbZseR6/exec";
@@ -639,7 +640,9 @@ function askPurposeOnly() {
       { label:"マンツーマントレーニング",      val:"マンツーマントレーニング" },
     ], function(v){
       if (v === "pain") {
-        wait(function(){ askLocationAndMenu(); }, 400);
+        reserv.menu = "初診（保険）";
+        addBot("施術（保険）で予約します 🌸");
+        wait(function(){ askWho(); }, 400);
       } else {
         reserv.menu = v;
         addBot("「" + v + "」で予約します 🌸");
@@ -1077,12 +1080,13 @@ function askMenuForNewUser() {
       { label:"マンツーマントレーニング",    val:"マンツーマントレーニング" },
     ], function(v){
       if (v === "pain") {
-        wait(function(){ askLocationAndMenu(); }, 400);
+        reserv.menu = "初診（保険）";
+        addBot("施術（保険）で予約します 🌸");
       } else {
         reserv.menu = v;
         addBot("「" + v + "」で予約します 🌸");
-        wait(function(){ askFamilyTogether(); }, 400);
       }
+      wait(function(){ askFamilyTogether(); }, 400);
     });
   }, 600);
 }
@@ -1361,25 +1365,59 @@ function showFinalConfirm() {
       + '</div>';
     document.getElementById("msgs").appendChild(wrap); scrollB();
 
-    // 根本改善・定期ケア希望の方にはサブスクを再提案
-    if (reserv.motivation === "fundamental" || reserv.motivation === "longterm" || reserv.motivation === "maintain") {
-      wait(function() {
-        addBot("初診後、先生と一緒にケアプランを決めましょう 🌸\n\nサブスク会員（月7,800円）に入ると\n施術60分＋追加10%OFFで\n定期ケアがとてもお得になります。");
-        wait(function() {
-          var w2 = document.createElement("div"); w2.className = "cardwrap";
-          w2.innerHTML = '<div class="btnrow" style="padding:0 16px 4px 56px;">'
-            + '<a href="' + SQUARE_URL + '" target="_blank" class="btnok gold" style="text-decoration:none;">サブスクに申し込む ✨</a>'
-            + '</div>';
-          document.getElementById("msgs").appendChild(w2); scrollB();
-          wait(function(){ askRegularVisit(); }, 800);
-        }, 600);
-      }, 800);
-    } else {
-      wait(function(){ askRegularVisit(); }, 600);
-    }
+    // 予約完了後に任意の事前問診
+    wait(function() {
+      addBot("事前に症状をお伝えいただけますか？（任意・スキップ可）\n初めての方・1ヶ月以上ぶりの方はご協力いただけると助かります 🌸");
+      wait(function(){
+        showChoices([
+          { label:"症状を伝える",   val:"survey_yes" },
+          { label:"スキップする",   val:"survey_no" },
+        ], function(sv){
+          if (sv === "survey_yes") {
+            wait(function(){ askOptionalSurvey(); }, 400);
+          } else {
+            wait(function(){ askRegularVisit(); }, 400);
+          }
+        });
+      }, 600);
+    }, 600);
   }, 400);
 }
 
+
+// ============================================================
+// 予約後・任意の事前問診（簡易版）
+// ============================================================
+function askOptionalSurvey() {
+  addBot("どのあたりが気になりますか？");
+  wait(function(){
+    showChoices([
+      { label:"腰・お尻", val:"腰・お尻" },
+      { label:"肩・首",   val:"肩・首" },
+      { label:"膝・足",   val:"膝・足" },
+      { label:"手・腕",   val:"手・腕" },
+      { label:"交通事故でのケガ", val:"交通事故" },
+      { label:"その他",   val:"その他" },
+    ], function(loc){
+      reserv.location = loc;
+      wait(function(){
+        addBot("いつ頃から痛みがありますか？");
+        wait(function(){
+          showChoices([
+            { label:"今日突然痛くなった", val:"today" },
+            { label:"数日前から",         val:"fewdays" },
+            { label:"1週間以上前から",    val:"week" },
+            { label:"ずっと前から慢性的に", val:"chronic" },
+          ], function(dur){
+            reserv.duration = dur;
+            addBot("ありがとうございます 🌸\nスタッフに事前にお伝えします。");
+            wait(function(){ askRegularVisit(); }, 600);
+          });
+        }, 600);
+      }, 400);
+    });
+  }, 600);
+}
 
 // ============================================================
 // 定期来院提案（前回通院10日以内 & 次回予約0〜1件）

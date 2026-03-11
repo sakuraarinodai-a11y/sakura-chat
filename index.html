@@ -1301,7 +1301,27 @@ function loadSlots(date, zone) {
       if (zone === "evening") return h >= 15;
       return true;
     });
+
+    // 当日の場合、現在時刻から2時間以内のスロットを除外
+    var todayStr = (function(){ var t=new Date(); return t.getFullYear()+"-"+pad(t.getMonth()+1)+"-"+pad(t.getDate()); })();
+    var cutoffNotice = false;
+    if (date === todayStr) {
+      var now = new Date();
+      var cutoff = new Date(now.getTime() + 2 * 60 * 60 * 1000); // 2時間後
+      filtered = filtered.filter(function(s){
+        var parts = s.split(":"); var sh = parseInt(parts[0]); var sm = parseInt(parts[1]);
+        var slotTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), sh, sm);
+        return slotTime >= cutoff;
+      });
+      cutoffNotice = true;
+    }
+
     if (filtered.length === 0) {
+      if (cutoffNotice) {
+        addBot("本日の残りの枠は受付終了です（当日2時間前まで受付）😢\nお電話（078-984-5788）にてご相談ください。");
+        wait(function(){ showChoices([{ label:"別の日にする", val:"other_day" }], function(){ wait(function(){ askDate(); }, 400); }); }, 600);
+        return;
+      }
       var zoneLabel = zone==="morning"?"午前中":zone==="noon"?"昼頃":"夕方以降";
       addBot(zoneLabel + "の空きがありませんでした 😢\n他の時間帯を確認しますか？");
       wait(function(){
@@ -1315,7 +1335,9 @@ function loadSlots(date, zone) {
       }, 600);
       return;
     }
-    addBot("空きがございます 🌸\nご希望の時間をお選びください。");
+    var slotMsg = "空きがございます 🌸\nご希望の時間をお選びください。";
+    if (cutoffNotice) slotMsg += "\n※ 当日は2時間前まで受付（以降はお電話で）";
+    addBot(slotMsg);
     wait(function(){
       var outer = document.createElement("div"); outer.className = "cardwrap";
       var sched = document.createElement("div"); sched.className = "time-sched";

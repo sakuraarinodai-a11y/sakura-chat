@@ -2792,7 +2792,8 @@ function showMenuPriceCard() {
   wrap.querySelector("#menu-price-reserve-btn").addEventListener("click", function() {
     var menuChoices = [];
     menus.forEach(function(cat){ cat.items.forEach(function(item){ menuChoices.push({ label:item.name+" ("+item.price+")", val:item.val }); }); });
-    disableAll();
+    // [変更] disableAll()未定義バグ修正：カードのボタンのみ無効化してからchoicesを表示
+    wrap.querySelectorAll("button").forEach(function(b){ b.disabled=true; b.style.opacity="0.4"; });
     wait(function(){
       showChoices(menuChoices, function(v){
         reserv.menu = v;
@@ -2802,7 +2803,11 @@ function showMenuPriceCard() {
     }, 300);
   });
 }
-function onMenuPriceBack() { disableAll(); reserv={}; step=""; wait(function(){ askPurpose(); }, 400); }
+// [変更] disableAll()未定義バグ修正：最初に戻るボタンも同様に修正
+function onMenuPriceBack() {
+  document.querySelectorAll("#msgs .choices button, #msgs .cardwrap button").forEach(function(b){ b.disabled=true; b.style.opacity="0.4"; });
+  reserv={}; step=""; wait(function(){ askPurpose(); }, 400);
+}
 
 function showChoices(choices, cb) {
   var wrap = document.createElement("div"); wrap.className="choices";

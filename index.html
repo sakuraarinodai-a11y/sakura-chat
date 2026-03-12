@@ -2508,6 +2508,16 @@ function execCancel(r, callback) {
 function handleConsultInput(text) {
   // [変更] キーワード事前検知：アンケート・メニュー・料金
   if (/アンケート|口コミ|感想|評価/.test(text)) {
+    var _surveyUrl = loadData("sakura_survey_url");
+    if (_surveyUrl) {
+      step=""; addBot("アンケートはこちらからお答えください 🌸");
+      wait(function(){
+        var wrap = document.createElement("div"); wrap.className="cardwrap";
+        wrap.innerHTML = '<div class="card" style="padding:12px;"><a href="' + esc(_surveyUrl) + '" target="_blank" style="display:block;background:var(--pink);color:white;text-align:center;padding:12px;border-radius:10px;text-decoration:none;font-weight:700;">📝 アンケートに答える</a></div>';
+        document.getElementById("msgs").appendChild(wrap); scrollB();
+        wait(function(){ showChoices([{label:"🔄 最初に戻る",val:"back"}], function(){ reserv={}; step=""; wait(function(){ askPurpose(); },400); }); }, 400);
+      }, 400); return;
+    }
     step=""; addBot("アンケートを開始します 🌸");
     wait(function(){ startSurvey(); }, 400); return;
   }
@@ -3118,6 +3128,28 @@ function renderAdminPanel() {
     + (lastSync ? '最終同期: ' + lastSync : '未同期')
     + '</div>';
   panel.appendChild(calSec);
+
+  // [変更] ── アンケート設定セクション（Googleフォームリンク） ──
+  var surveySec = document.createElement("div");
+  surveySec.className = "admin-section";
+  var surveyUrl = loadData("sakura_survey_url") || "";
+  surveySec.innerHTML =
+    '<h4>📝 アンケート設定</h4>'
+    + '<div style="font-size:12px;color:#6b7280;margin-bottom:8px;">GoogleフォームのURLを貼り付けるとチャット内で表示されます。空欄の場合は内蔵アンケートを使用します。</div>'
+    + '<input class="admin-inp" id="adm-survey-url" value="' + esc(surveyUrl) + '" placeholder="https://docs.google.com/forms/d/..." style="width:100%;box-sizing:border-box;margin-bottom:8px;" />'
+    + '<button class="admin-btn" style="width:100%;padding:10px;" onclick="adminSaveSurveyUrl()">💾 URLを保存</button>'
+    + '<div id="adm-survey-status" style="margin-top:8px;font-size:12px;color:#6b7280;">'
+    + (surveyUrl ? '設定済み: ' + surveyUrl.substring(0, 40) + '…' : '未設定（内蔵アンケートを使用）')
+    + '</div>';
+  panel.appendChild(surveySec);
+}
+
+// [変更] アンケートURL保存
+function adminSaveSurveyUrl() {
+  var url = (document.getElementById("adm-survey-url")||{}).value || "";
+  saveData("sakura_survey_url", url);
+  var st = document.getElementById("adm-survey-status");
+  if (st) { st.style.color="#059669"; st.textContent = url ? "✅ 保存しました: " + url.substring(0,40) + "…" : "✅ 削除しました（内蔵アンケートを使用）"; }
 }
 
 // [変更] カレンダー設定保存

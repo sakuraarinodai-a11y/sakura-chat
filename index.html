@@ -2518,7 +2518,11 @@ function handleFreeInput(text) {
       reserv.location = data.location || text;
       wait(function(){ askMotivation(); }, 800);
     } else if (data.intent==="menu") {
-      wait(function(){ onMenuSelect(data.menu||"consult"); }, 800);
+      if (data.menu && data.menu !== "consult") {
+        wait(function(){ onMenuSelect(data.menu); }, 800);
+      } else {
+        wait(function(){ showMenuPriceCard(); }, 600);
+      }
     } else if (data.intent==="reserve") {
       reserv={}; step=""; wait(function(){ askPurpose(); }, 800);
     } else if (data.intent==="access") {

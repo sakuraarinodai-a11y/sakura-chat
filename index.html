@@ -2504,6 +2504,52 @@ function execCancel(r, callback) {
   .catch(function(){ removeTyping(); addBot("通信エラーでキャンセルできませんでした 😢\nお電話（"+TEL+"）にてご連絡ください。", "error"); showRestartButton(); });
 }
 
+// [変更] その他・相談モード専用のAI会話関数（unknownでも会話継続）
+function handleConsultInput(text) {
+  if (/メニュー|料金|値段|施術.*見|何.*メニュー|どんな.*施術|メニュー.*教|施術.*種類|メニュー.*あ[りる]/.test(text)) {
+    step="";
+    addBot("こちらがサクラ整骨院のメニューと料金です 🌸");
+    wait(function(){ showMenuPriceCard(); }, 400);
+    return;
+  }
+  showTyping();
+  fetch(GAS_URL, { method:"POST", body:JSON.stringify({ token:AUTH_TOKEN, action:"judgeIntent", text:text, reserv:reserv }) })
+  .then(function(r){return r.json();})
+  .then(function(data) {
+    removeTyping();
+    addBot(data.reply);
+    var intent = data.intent || "unknown";
+    if      (intent==="reserve")  { step=""; reserv={}; wait(function(){ onPurpose("reserve"); }, 800); }
+    else if (intent==="cancel")   { step=""; wait(function(){ startCancelFlow(); }, 600); }
+    else if (intent==="check")    { step=""; wait(function(){ loadUpcomingReservations(patient); }, 600); }
+    else if (intent==="edit")     { step=""; wait(function(){ showProfileEdit(); }, 600); }
+    else if (intent==="price")    { step=""; wait(function(){ showMenuPriceCard(); }, 600); }
+    else if (intent==="access")   { step=""; wait(function(){ askPurpose(); }, 800); }
+    else if (intent==="restart")  { step=""; reserv={}; wait(function(){ askPurpose(); }, 800); }
+    else {
+      // unknown → AIの返答を表示したまま入力を再有効化（会話継続）
+      wait(function(){
+        step="other_free"; enableInput();
+        wait(function(){
+          showChoices([
+            { label:"📅 予約に進む", val:"reserve" },
+            { label:"🔄 最初に戻る", val:"restart" },
+          ], function(v){
+            step="";
+            if (v==="reserve") { reserv={}; wait(function(){ onPurpose("reserve"); }, 400); }
+            else { reserv={}; wait(function(){ askPurpose(); }, 400); }
+          });
+        }, 400);
+      }, 600);
+    }
+  })
+  .catch(function(){
+    removeTyping();
+    addBot("うまく聞き取れませんでした 🙏\nもう一度お書きください。","error");
+    step="other_free"; enableInput();
+  });
+}
+
 function handleFreeInput(text) {
   // [変更] メニュー・料金キーワードをクライアント側で事前検知（Gemini誤分類の補完）
   if (/メニュー|料金|値段|施術.*見|何.*メニュー|どんな.*施術|メニュー.*教|施術.*種類|メニュー.*あ[りる]/.test(text)) {
@@ -2710,13 +2756,14 @@ function sendText() {
   } else if (step==="location_free") {
     step=""; reserv.location=text; wait(function(){ askMotivation(); }, 400);
   } else if (step==="other_free") {
-    step="";
+    // [変更] その他・相談モードはstepを維持してAI会話を継続
     // 「別人・人違い・違う人」はGAS経由せず直接対応
     if (/別人|人違い|違う人|別の人|別の方|自分じゃない|私じゃない/.test(text)) {
+      step="";
       addBot("承知しました 🌸\n登録情報の変更・リセットができます。");
       wait(function(){ showProfileEdit(); }, 600);
     } else {
-      handleFreeInput(text);
+      handleConsultInput(text);
     }
   } else if (step==="cancel_tel") {
     step="";

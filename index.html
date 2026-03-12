@@ -291,7 +291,7 @@ function saveData(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){
 function loadData(k){ try{var d=localStorage.getItem(k);return d?JSON.parse(d):null;}catch(e){return null;} }
 
 // HTML最終更新日時（デプロイ時に自動更新）
-var HTML_UPDATED = "2026/03/13 12:00";
+var HTML_UPDATED = "2026/03/13 18:00";
 document.getElementById("ver-label").textContent = "HTML更新: " + HTML_UPDATED;
 // GAS最終更新日時を非同期で取得して表示
 fetch(GAS_URL + "?action=memoStatus")
@@ -1186,14 +1186,7 @@ function askFamilyTogether() {
 // 日付選択
 // ============================================================
 function askMenuForNewUser() {
-  addBot("ご希望のメニューをお選びください 🌸");
-  wait(function(){
-    showChoices(buildMenuChoices(), function(v){
-      reserv.menu = v;
-      addBot("「" + v + "」で予約します 🌸");
-      wait(function(){ askFamilyTogether(); }, 400);
-    });
-  }, 600);
+  showMultiMenuSelector(reserv.menu || null, reserv.extraMenus || []);
 }
 
 function buildMenuChoices() {
@@ -1206,6 +1199,275 @@ function buildMenuChoices() {
     { label:"施療60分",                            val:"施術60分" },
     { label:"施療75分",                            val:"施術75分" },
   ];
+}
+
+// ============================================================
+// 複数メニュー選択UI
+// ============================================================
+function showMultiMenuSelector(baseMenu, extraMenus) {
+  addBot("ご希望のメニューをお選びください 🌸");
+  wait(function(){
+    var mainMenus = [
+      { val:"おすすめ初診",  label:"⭐ おすすめ初診　3,000円〜10,000円" },
+      { val:"初診（保険）",  label:"初診（保険）　3,000円" },
+      { val:"施術5分",       label:"施療5分（保険）" },
+      { val:"施術15分",      label:"施療15分" },
+      { val:"施術30分",      label:"施療30分" },
+      { val:"施術60分",      label:"施療60分" },
+      { val:"施術75分",      label:"施療75分" },
+    ];
+    var extraOptions = [
+      { val:"楽トレ",                   label:"楽トレ（20分）" },
+      { val:"酸素カプセル",             label:"酸素カプセル（40分）" },
+      { val:"セルフトレーニング",       label:"セルフトレーニング（60分）" },
+      { val:"マンツーマントレーニング", label:"マンツーマントレーニング（60分）" },
+    ];
+    var defaultMain = baseMenu || "おすすめ初診";
+
+    var card = document.createElement("div"); card.className = "cardwrap";
+    var inner = document.createElement("div"); inner.className = "card";
+    inner.style.minWidth = "260px";
+
+    var h3 = document.createElement("h3");
+    h3.textContent = "施術メニュー（必須）";
+    inner.appendChild(h3);
+
+    var mainGroup = document.createElement("div");
+    mainGroup.style.cssText = "display:flex;flex-direction:column;gap:6px;margin-bottom:14px;";
+    mainMenus.forEach(function(m){
+      var lbl = document.createElement("label");
+      lbl.style.cssText = "display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;";
+      var inp = document.createElement("input");
+      inp.type = "radio"; inp.name = "multiMenuMain"; inp.value = m.val;
+      if (m.val === defaultMain) inp.checked = true;
+      lbl.appendChild(inp);
+      lbl.appendChild(document.createTextNode(m.label));
+      mainGroup.appendChild(lbl);
+    });
+    inner.appendChild(mainGroup);
+
+    var h3b = document.createElement("h3");
+    h3b.textContent = "追加メニュー（任意・複数選択可）";
+    h3b.style.marginTop = "4px";
+    inner.appendChild(h3b);
+
+    var extraGroup = document.createElement("div");
+    extraGroup.style.cssText = "display:flex;flex-direction:column;gap:6px;margin-bottom:14px;";
+    extraOptions.forEach(function(e){
+      var lbl = document.createElement("label");
+      lbl.style.cssText = "display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;";
+      var inp = document.createElement("input");
+      inp.type = "checkbox"; inp.name = "multiMenuExtra"; inp.value = e.val;
+      if (extraMenus && extraMenus.indexOf(e.val) >= 0) inp.checked = true;
+      lbl.appendChild(inp);
+      lbl.appendChild(document.createTextNode(e.label));
+      extraGroup.appendChild(lbl);
+    });
+    inner.appendChild(extraGroup);
+
+    var note = document.createElement("div");
+    note.style.cssText = "font-size:11px;color:#9ca3af;margin-bottom:10px;";
+    note.textContent = "※ 追加メニューは施術の前後に10分間隔で設定されます";
+    inner.appendChild(note);
+
+    var btn = document.createElement("button");
+    btn.className = "btnok"; btn.textContent = "メニューを決定する";
+    btn.onclick = function(){
+      var mainEl = inner.querySelector('input[name="multiMenuMain"]:checked');
+      if (!mainEl) return;
+      var extras = Array.from(inner.querySelectorAll('input[name="multiMenuExtra"]:checked')).map(function(el){ return el.value; });
+      inner.querySelectorAll("input,button").forEach(function(el){ el.disabled = true; });
+      onMultiMenuConfirm(mainEl.value, extras);
+    };
+    inner.appendChild(btn);
+    card.appendChild(inner);
+    document.getElementById("msgs").appendChild(card); scrollB();
+  }, 600);
+}
+
+function onMultiMenuConfirm(mainMenu, extras) {
+  reserv.menu = mainMenu;
+  reserv.extraMenus = extras;
+  var msg = "「" + mainMenu + "」";
+  if (extras.length > 0) msg += " ＋ " + extras.join("・");
+  addUser(msg);
+  wait(function(){ askFamilyTogether(); }, 400);
+}
+
+// ============================================================
+// 複数メニュー 空き時間表示
+// ============================================================
+function loadSlotsMulti(date) {
+  showTyping();
+  fetch(GAS_URL, { method:"POST", body:JSON.stringify({
+    token: AUTH_TOKEN, action: "getMultiMenuSlots",
+    date: date, mainMenu: reserv.menu, extraMenus: reserv.extraMenus || []
+  })})
+  .then(function(r){ return r.json(); })
+  .then(function(data) {
+    removeTyping();
+    if (!data.success || !data.slots || data.slots.length === 0) {
+      addBot("申し訳ありません。その日は複数メニューを組み合わせられる空きがありませんでした 😢");
+      wait(function(){ askDate(); }, 600); return;
+    }
+
+    var allSlots = data.slots;
+    var todayStr = (function(){ var t=new Date(); return t.getFullYear()+"-"+pad(t.getMonth()+1)+"-"+pad(t.getDate()); })();
+    var filtered = allSlots;
+    if (date === todayStr) {
+      var now = new Date();
+      var cutoff = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+      filtered = allSlots.filter(function(s){
+        var parts = s.displayTime.split(":");
+        var slotTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), parseInt(parts[0]), parseInt(parts[1]));
+        return slotTime >= cutoff;
+      });
+    }
+
+    if (filtered.length === 0) {
+      addBot("本日の残りの枠は受付終了です（当日2時間前まで受付）😢\nお電話（078-984-5788）にてご相談ください。");
+      wait(function(){ showChoices([{ label:"別の日にする", val:"other_day" }], function(){ wait(function(){ askDate(); }, 400); }); }, 600);
+      return;
+    }
+
+    var menuLabel = reserv.menu + (reserv.extraMenus && reserv.extraMenus.length > 0 ? " ＋ " + reserv.extraMenus.join("・") : "");
+    addBot("「" + menuLabel + "」の空きがございます 🌸\n開始時間をお選びください。");
+    wait(function(){
+      var outer = document.createElement("div"); outer.className = "cardwrap";
+
+      var changeLink = document.createElement("div");
+      changeLink.style.cssText = "text-align:center;padding:6px 0 2px;";
+      changeLink.innerHTML = '<button style="background:none;border:none;font-size:12px;color:#9ca3af;cursor:pointer;text-decoration:underline;" onclick="showMultiMenuSelector(reserv.menu,reserv.extraMenus||[])">メニューを変える</button>';
+      outer.appendChild(changeLink);
+
+      var sched = document.createElement("div"); sched.className = "time-sched";
+      outer.appendChild(sched);
+
+      var hourGroups = {};
+      filtered.forEach(function(s){
+        var h = parseInt(s.displayTime.split(":")[0]);
+        if (!hourGroups[h]) hourGroups[h] = [];
+        hourGroups[h].push(s);
+      });
+
+      function makeMultiTimeBtn(s, cls) {
+        var btn = document.createElement("button");
+        btn.className = cls; btn.textContent = s.displayTime;
+        btn.onclick = function(){
+          outer.querySelectorAll("button").forEach(function(b){ b.disabled = true; });
+          onMultiTimeSelect(s);
+        };
+        return btn;
+      }
+
+      Object.keys(hourGroups).sort(function(a,b){ return a-b; }).forEach(function(h){
+        var slots = hourGroups[h];
+        var mainSlots = slots.filter(function(s){ var m=parseInt(s.displayTime.split(":")[1]); return m===0||m===30; });
+        var subSlots  = slots.filter(function(s){ var m=parseInt(s.displayTime.split(":")[1]); return m!==0&&m!==30; });
+        var row = document.createElement("div"); row.className = "time-sched-row";
+        var lbl = document.createElement("div"); lbl.className = "time-sched-label";
+        lbl.textContent = h + "時";
+        row.appendChild(lbl);
+        var btns = document.createElement("div"); btns.className = "time-sched-btns";
+        mainSlots.forEach(function(s){ btns.appendChild(makeMultiTimeBtn(s, "time-btn-main")); });
+        subSlots.forEach(function(s){  btns.appendChild(makeMultiTimeBtn(s, "time-btn-sub"));  });
+        row.appendChild(btns);
+        sched.appendChild(row);
+      });
+
+      document.getElementById("msgs").appendChild(outer); scrollB();
+    }, 600);
+  })
+  .catch(function(){ removeTyping(); addBot("空き時間の確認でエラーが発生しました 😢", "error"); });
+}
+
+function onMultiTimeSelect(slotData) {
+  reserv.time = slotData.displayTime;
+  reserv.multiAssignments = slotData.assignments;
+  addUser(slotData.displayTime);
+  if (!reserv.tel) {
+    wait(function(){
+      addBot("ご連絡先をお聞かせください 🌸");
+      wait(function(){
+        showChoices([
+          { label:"📱 電話番号を入力する", val:"tel" },
+          { label:"💚 LINEでお友達登録する", val:"line" },
+        ], onContactSelect);
+      }, 600);
+    }, 400);
+  } else { wait(function(){ showConfirmCardMulti(); }, 400); }
+}
+
+// ============================================================
+// 複数メニュー 予約確認カード
+// ============================================================
+function showConfirmCardMulti() {
+  addBot("ご予約内容を確認してください 🌸");
+  wait(function(){
+    var name = (reserv.sei||"")+" "+(reserv.mei||"");
+    var kana = (reserv.seiKana||"")+" "+(reserv.meiKana||"");
+    var wrap = document.createElement("div"); wrap.className = "cardwrap";
+    var nums = ["①","②","③","④"];
+    var html = '<div class="card"><h3>📋 予約内容の確認</h3>'
+      + row("お名前", name+"（"+kana+"）")
+      + row("連絡先", reserv.tel||"")
+      + row("日付", reserv.date||"");
+    (reserv.multiAssignments || []).forEach(function(a, i){
+      html += row((nums[i]||"●") + " " + a.menu, a.time + "〜");
+    });
+    html += '<div style="text-align:right;font-size:11px;color:#9ca3af;margin-top:4px;">※ 施術間に10分の間隔があります</div>'
+      + '<div class="btnrow">'
+      + '<button class="btnok" onclick="confirmMultiReservation()">この内容で予約する</button>'
+      + '<button class="btnng" onclick="correctMultiReservation()">訂正する</button>'
+      + '</div></div>';
+    wrap.innerHTML = html;
+    document.getElementById("msgs").appendChild(wrap); scrollB();
+  }, 400);
+}
+
+function correctMultiReservation() {
+  addBot("どこを訂正しますか？");
+  wait(function(){
+    showChoices([
+      { label:"メニューを変える", val:"fix_menu" },
+      { label:"日時を変える",     val:"fix_date" },
+      { label:"連絡先",           val:"fix_tel"  },
+    ], function(val){
+      if (val === "fix_menu") { wait(function(){ showMultiMenuSelector(reserv.menu, reserv.extraMenus || []); }, 400); }
+      else if (val === "fix_date") { wait(function(){ askDate(); }, 400); }
+      else if (val === "fix_tel") { wait(function(){ addBot("電話番号を入力してください。"); step="tel"; enableInput(); }, 400); }
+    });
+  }, 600);
+}
+
+function confirmMultiReservation() {
+  addBot("予約の手続きをしています 🌸");
+  showTyping();
+  var motivationText = { quick:"早く痛みを取りたい", fundamental:"根本から改善・再発させたくない", longterm:"定期的にずっと診てもらいたい", maintain:"体の維持・管理がしたい" };
+  reserv.motivationText = motivationText[reserv.motivation] || "";
+  var menusPayload = (reserv.multiAssignments || []).map(function(a){ return { menu: a.menu, time: a.time }; });
+  fetch(GAS_URL, { method:"POST", body:JSON.stringify(Object.assign({}, reserv, {
+    token: AUTH_TOKEN, action: "makeMultiReservation", menus: menusPayload
+  }))})
+  .then(function(r){ return r.json(); })
+  .then(function(data){
+    removeTyping();
+    if (data.success) {
+      if (reserv.sei) {
+        patient.sei=reserv.sei; patient.mei=reserv.mei;
+        patient.seiKana=reserv.seiKana; patient.meiKana=reserv.meiKana;
+        patient.name=reserv.sei+" "+reserv.mei; patient.tel=reserv.tel;
+        saveData("sakura_patient", patient);
+      }
+      reserv.upcomingCount = data.upcomingCount || 0;
+      reserv.menu = (reserv.multiAssignments || []).map(function(a){ return a.menu; }).join("・");
+      addBot("ご予約の手続きが完了しました 🌸\nご確認まで少々お待ちください。");
+      wait(function(){ askArrival(); }, 1000);
+    } else {
+      addBot("⚠️ 予約登録に問題が発生しました。\nお電話（078-984-5788）でご確認ください。","error"); showRestartButton();
+    }
+  })
+  .catch(function(){ removeTyping(); addBot("⚠️ 通信エラーが発生しました。\nお電話（078-984-5788）でご確認ください。","error"); showRestartButton(); });
 }
 
 function askDate() {
@@ -1309,13 +1571,19 @@ function onCalDateSelect(dateStr) {
   var d2 = new Date(dateStr + 'T00:00:00');
   var days2 = ["日","月","火","水","木","金","土"];
   addUser((d2.getMonth()+1) + "月" + d2.getDate() + "日（" + days2[d2.getDay()] + "）");
-  wait(function(){ loadSlots(dateStr, "any"); }, 400);
+  wait(function(){
+    if (reserv.extraMenus && reserv.extraMenus.length > 0) { loadSlotsMulti(dateStr); }
+    else { loadSlots(dateStr, "any"); }
+  }, 400);
 }
 
 function onDateSelect(val) {
   if (val === "other_date") { wait(function(){ addBot("ご希望の日付を入力してください。\n（例：2026-03-15）"); step="date"; enableInput(); }, 400); return; }
   reserv.date = val;
-  wait(function(){ loadSlots(val, "any"); }, 400);
+  wait(function(){
+    if (reserv.extraMenus && reserv.extraMenus.length > 0) { loadSlotsMulti(val); }
+    else { loadSlots(val, "any"); }
+  }, 400);
 }
 
 function askTimeZone(date) {
@@ -1388,11 +1656,17 @@ function loadSlots(date, zone) {
       }, 600);
       return;
     }
-    var slotMsg = "空きがございます 🌸\nご希望の時間をお選びください。";
+    var slotMsg = "「" + (reserv.menu||"") + "」の空きがございます 🌸\nご希望の時間をお選びください。";
     if (cutoffNotice) slotMsg += "\n※ 当日は2時間前まで受付（以降はお電話で）";
     addBot(slotMsg);
     wait(function(){
       var outer = document.createElement("div"); outer.className = "cardwrap";
+
+      var changeLink = document.createElement("div");
+      changeLink.style.cssText = "text-align:center;padding:6px 0 2px;";
+      changeLink.innerHTML = '<button style="background:none;border:none;font-size:12px;color:#9ca3af;cursor:pointer;text-decoration:underline;" onclick="showMultiMenuSelector(reserv.menu,reserv.extraMenus||[])">メニューを変える</button>';
+      outer.appendChild(changeLink);
+
       var sched = document.createElement("div"); sched.className = "time-sched";
       outer.appendChild(sched);
 
@@ -1466,7 +1740,10 @@ function onContactSelect(val) {
     btn.onclick = function(){ window.open(LINE_URL,"_blank"); };
     wrap.appendChild(btn);
     document.getElementById("msgs").appendChild(wrap); scrollB();
-    wait(function(){ showConfirmCard(); }, 800);
+    wait(function(){
+      if (reserv.multiAssignments) showConfirmCardMulti();
+      else showConfirmCard();
+    }, 800);
   }
 }
 
@@ -1478,12 +1755,20 @@ function showConfirmCard() {
   wait(function() {
     var name = (reserv.sei||"")+" "+(reserv.mei||"");
     var kana = (reserv.seiKana||"")+" "+(reserv.meiKana||"");
+    // メニューの所要時間を計算
+    var menuDurations = { "おすすめ初診":60,"初診（保険）":30,"施術5分":10,"施術15分":20,"施術30分":35,"施術60分":65,"施術75分":80 };
+    var dur = menuDurations[reserv.menu];
+    var endTimeStr = "";
+    if (dur && reserv.time) {
+      var parts = reserv.time.split(":"); var endMs = new Date(2000,0,1,parseInt(parts[0]),parseInt(parts[1])).getTime() + dur*60000;
+      var edt = new Date(endMs); endTimeStr = "〜" + pad(edt.getHours()) + ":" + pad(edt.getMinutes()) + "（約" + dur + "分）";
+    }
     var wrap = document.createElement("div"); wrap.className = "cardwrap";
     wrap.innerHTML = '<div class="card"><h3>📋 予約内容の確認</h3>'
       + row("お名前", name+"（"+kana+"）")
       + row("連絡先", reserv.tel||"")
-      + row("メニュー", reserv.menu||"")
-      + row("日時", (reserv.date||"")+" "+(reserv.time||""))
+      + row("メニュー", (reserv.menu||"") + ' <button onclick="showMultiMenuSelector(reserv.menu,reserv.extraMenus||[])" style="background:none;border:none;font-size:11px;color:#9ca3af;cursor:pointer;text-decoration:underline;padding:0 4px;">変える</button>')
+      + row("日時", (reserv.date||"")+" "+(reserv.time||"")+" "+endTimeStr)
       + '<div class="btnrow">'
       + '<button class="btnok" onclick="confirmReservation()">この内容で予約する</button>'
       + '<button class="btnng" onclick="correctReservation()">訂正する</button>'
@@ -1508,7 +1793,7 @@ function correctReservation() {
       if (val==="fix_name") { wait(function(){ addBot("お名前を入力してください。"); step="name"; enableInput(); },400); }
       else if (val==="fix_kana") { wait(function(){ addBot("フリガナを入力してください。"); step="kana"; enableInput(); },400); }
       else if (val==="fix_tel") { wait(function(){ addBot("電話番号を入力してください。"); step="tel"; enableInput(); },400); }
-      else if (val==="fix_menu") { wait(function(){ onMenuSelect("consult"); },400); }
+      else if (val==="fix_menu") { wait(function(){ showMultiMenuSelector(reserv.menu, reserv.extraMenus || []); },400); }
       else if (val==="fix_date") { wait(function(){ askDate(); },400); }
     });
   }, 600);
@@ -2823,11 +3108,17 @@ function sendText() {
     saveData("sakura_patient", patient);
     if (!reserv.menu) {
       wait(function(){ askMenuForNewUser(); }, 400);
+    } else if (reserv.multiAssignments) {
+      wait(function(){ showConfirmCardMulti(); }, 400);
     } else {
       wait(function(){ askFamilyTogether(); }, 400);
     }
   } else if (step==="date") {
-    step=""; reserv.date=text; wait(function(){ loadSlots(text, "any"); }, 400);
+    step=""; reserv.date=text;
+    wait(function(){
+      if (reserv.extraMenus && reserv.extraMenus.length > 0) { loadSlotsMulti(text); }
+      else { loadSlots(text, "any"); }
+    }, 400);
   } else if (step==="family_name") {
     step=""; var fp=text.trim().split(/[\s　]+/);
     window._tmpFamily={name:text.trim(),sei:fp[0]||text,mei:fp[1]||"",seiKana:"",meiKana:"",tel:""};

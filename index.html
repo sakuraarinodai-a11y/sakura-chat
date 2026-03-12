@@ -290,7 +290,7 @@ function saveData(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){
 function loadData(k){ try{var d=localStorage.getItem(k);return d?JSON.parse(d):null;}catch(e){return null;} }
 
 // HTML最終更新日時（デプロイ時に自動更新）
-var HTML_UPDATED = "2026/03/12 13:00";
+var HTML_UPDATED = "2026/03/12 17:30";
 document.getElementById("ver-label").textContent = "HTML更新: " + HTML_UPDATED;
 // GAS最終更新日時を非同期で取得して表示
 fetch(GAS_URL + "?action=memoStatus")
@@ -2503,6 +2503,12 @@ function execCancel(r, callback) {
 }
 
 function handleFreeInput(text) {
+  // [変更] メニュー・料金キーワードをクライアント側で事前検知（Gemini誤分類の補完）
+  if (/メニュー|料金|値段|施術.*見|何.*メニュー|どんな.*施術|メニュー.*教|施術.*種類|メニュー.*あ[りる]/.test(text)) {
+    addBot("こちらがサクラ整骨院のメニューと料金です 🌸");
+    wait(function(){ showMenuPriceCard(); }, 400);
+    return;
+  }
   showTyping();
   fetch(GAS_URL, { method:"POST", body:JSON.stringify({ token:AUTH_TOKEN, action:"judgeIntent", text:text, reserv:reserv }) })
   .then(function(r){return r.json();})

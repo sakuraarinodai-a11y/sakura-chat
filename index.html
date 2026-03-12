@@ -290,7 +290,7 @@ function saveData(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){
 function loadData(k){ try{var d=localStorage.getItem(k);return d?JSON.parse(d):null;}catch(e){return null;} }
 
 // HTML最終更新日時（デプロイ時に自動更新）
-var HTML_UPDATED = "2026/03/12 17:45";
+var HTML_UPDATED = "2026/03/12 18:00";
 document.getElementById("ver-label").textContent = "HTML更新: " + HTML_UPDATED;
 // GAS最終更新日時を非同期で取得して表示
 fetch(GAS_URL + "?action=memoStatus")
@@ -1794,10 +1794,10 @@ function askRegMenuAndTime() {
 function buildRegMenuUI() {
   return '<div class="admin-section" id="reg-menu-ui">' +
     // ① 施術
+    // [変更] 施術チェックボックスを削除：サブボタンを常時表示
     '<div class="reg-category" id="cat-shijutsu">' +
-    '<label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:#1e40af;cursor:pointer;">' +
-    '<input type="checkbox" id="chk-shijutsu" onchange="toggleRegCategory(this,\'shijutsu\')" style="width:16px;height:16px;cursor:pointer;">施術</label>' +
-    '<div id="sub-shijutsu" style="display:none;margin:8px 0 0 22px;display:flex;flex-wrap:wrap;gap:6px;">' +
+    '<div style="font-size:13px;font-weight:600;color:#1e40af;margin-bottom:6px;">施術</div>' +
+    '<div id="sub-shijutsu" style="display:flex;flex-wrap:wrap;gap:6px;">' +
     ['施術5分','施術15分','施術30分','施術60分','施術75分'].map(function(m){
       return '<button class="reg-sub-btn" data-group="shijutsu" data-val="'+m+'" onclick="selectRegSub(this)" style="padding:5px 10px;border:1.5px solid #bfdbfe;border-radius:8px;background:white;font-size:12px;cursor:pointer;color:#1e40af;">'+m+'</button>';
     }).join('') + '</div></div>' +
@@ -1936,9 +1936,11 @@ function selectRegOption(btn, type) {
   if (type === 'menu') _regMenuSel = btn.getAttribute('data-val');
   else                 _regTimeSel = btn.getAttribute('data-val');
 
+  // [変更] チェックボックス方式（_regMenuList）でも確認ボタンを活性化
   var confirmBtn = document.getElementById('reg-confirm-btn');
-  if (confirmBtn && _regMenuSel && _regTimeSel) {
-    confirmBtn.style.opacity = '1'; confirmBtn.style.pointerEvents = 'auto';
+  if (confirmBtn) {
+    var hasMenu = (_regMenuSel && _regTimeSel) || (_regMenuList.length > 0 && _regTimeSel);
+    if (hasMenu) { confirmBtn.style.opacity = '1'; confirmBtn.style.pointerEvents = 'auto'; }
   }
 }
 

@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AppFactory ⚡ AIアプリ生成</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans JP", sans-serif;
+      background: #0f0f1a;
+      color: #e8e8f0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px 48px;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    .logo {
+      font-size: 2.4rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, #a78bfa, #60a5fa, #34d399);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -1px;
+    }
+    .logo span { opacity: 0.6; font-weight: 400; }
+    .tagline {
+      color: #888;
+      font-size: 0.9rem;
+      margin-top: 6px;
+    }
+    .card {
+      width: 100%;
+      max-width: 680px;
+      background: #1a1a2e;
+      border: 1px solid #2a2a45;
+      border-radius: 16px;
+      padding: 32px;
+      margin-bottom: 20px;
+    }
+    .card h2 {
+      font-size: 1rem;
+      color: #a78bfa;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 20px;
+    }
+    label {
+      display: block;
+      font-size: 0.85rem;
+      color: #aaa;
+      margin-bottom: 6px;
+      margin-top: 16px;
+    }
+    label:first-of-type { margin-top: 0; }
+    input[type="text"], textarea {
+      width: 100%;
+      background: #0f0f1a;
+      border: 1px solid #2a2a45;
+      border-radius: 10px;
+      padding: 12px 14px;
+      color: #e8e8f0;
+      font-size: 0.95rem;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input[type="text"]:focus, textarea:focus {
+      border-color: #a78bfa;
+    }
+    textarea {
+      min-height: 140px;
+      resize: vertical;
+      line-height: 1.6;
+    }
+    .hint {
+      font-size: 0.8rem;
+      color: #666;
+      margin-top: 6px;
+      line-height: 1.5;
+    }
+    .btn-submit {
+      margin-top: 24px;
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #7c3aed, #2563eb);
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+    .btn-submit:hover { opacity: 0.9; }
+    .btn-submit:active { transform: scale(0.98); }
+    .btn-submit:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* Status section */
+    #status-section { display: none; }
+    .status-box {
+      background: #0f0f1a;
+      border: 1px solid #2a2a45;
+      border-radius: 10px;
+      padding: 20px;
+      text-align: center;
+    }
+    .spinner {
+      width: 36px; height: 36px;
+      border: 3px solid #2a2a45;
+      border-top-color: #a78bfa;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 14px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .status-text { color: #aaa; font-size: 0.9rem; }
+    .status-id { color: #555; font-size: 0.75rem; margin-top: 8px; font-family: monospace; }
+
+    /* Result section */
+    #result-section { display: none; }
+    .result-box {
+      background: linear-gradient(135deg, #0a2a0a, #0a1a2a);
+      border: 1px solid #1a4a1a;
+      border-radius: 10px;
+      padding: 24px;
+      text-align: center;
+    }
+    .result-icon { font-size: 2rem; margin-bottom: 10px; }
+    .result-title { font-size: 1.1rem; font-weight: 700; color: #34d399; margin-bottom: 16px; }
+    .app-link {
+      display: inline-block;
+      padding: 12px 24px;
+      background: #34d399;
+      color: #0a2a0a;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 0.95rem;
+      margin-bottom: 12px;
+      transition: opacity 0.2s;
+    }
+    .app-link:hover { opacity: 0.85; }
+    .app-url-text {
+      font-size: 0.75rem;
+      color: #666;
+      font-family: monospace;
+      word-break: break-all;
+      margin-top: 8px;
+    }
+    .btn-new {
+      margin-top: 16px;
+      padding: 10px 20px;
+      background: transparent;
+      border: 1px solid #2a2a45;
+      border-radius: 8px;
+      color: #aaa;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .btn-new:hover { border-color: #a78bfa; color: #a78bfa; }
+
+    /* History */
+    #history-section { display: none; }
+    .history-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid #1a1a2e;
+      font-size: 0.85rem;
+    }
+    .history-item:last-child { border-bottom: none; }
+    .history-name { color: #e8e8f0; }
+    .history-link { color: #60a5fa; text-decoration: none; font-size: 0.8rem; }
+    .history-link:hover { text-decoration: underline; }
+
+    /* Examples */
+    .examples {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .example-chip {
+      padding: 6px 12px;
+      background: #1a1a3a;
+      border: 1px solid #2a2a55;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      color: #a78bfa;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .example-chip:hover { background: #2a2a4a; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">App<span>Factory</span> ⚡</div>
+  <div class="tagline">アイデアを書くだけで、AIがWebアプリを自動生成します</div>
+</header>
+
+<!-- 入力フォーム -->
+<div class="card" id="form-section">
+  <h2>新しいアプリを作る</h2>
+
+  <label>アプリ名</label>
+  <input type="text" id="app-name" placeholder="例：シフト管理ツール" maxlength="60">
+
+  <label>どんなアプリを作りたいですか？</label>
+  <textarea id="app-desc" placeholder="例：スタッフのシフトを月ごとに管理できるアプリ。名前・日付・時間を入力して保存できる。CSVでダウンロードもしたい。"></textarea>
+  <div class="hint">
+    ✅ 具体的に書くほど精度が上がります<br>
+    ✅ 機能・デザイン・操作方法の希望を自由に記述してください
+  </div>
+
+  <label>よく使われるアプリの例</label>
+  <div class="examples">
+    <span class="example-chip" onclick="setExample('シフト管理','スタッフの週次シフト表。名前・曜日・時間を入力して一覧表示。印刷ボタンあり。')">📅 シフト管理</span>
+    <span class="example-chip" onclick="setExample('家計簿','収入・支出を日付・カテゴリ・金額で記録。月ごとの集計グラフ表示。')">💰 家計簿</span>
+    <span class="example-chip" onclick="setExample('TODOリスト','タスクの追加・完了・削除ができるTODOアプリ。優先度（高中低）設定あり。')">✅ TODO</span>
+    <span class="example-chip" onclick="setExample('体重記録','日付・体重・メモを記録してグラフ表示。目標体重も設定できる。')">📊 体重記録</span>
+    <span class="example-chip" onclick="setExample('在庫管理','商品名・数量・単価を登録。在庫不足をハイライト表示。CSV出力あり。')">📦 在庫管理</span>
+    <span class="example-chip" onclick="setExample('アンケート','選択式・記述式の質問を作れるアンケートフォーム。回答結果を集計して表示。')">📝 アンケート</span>
+  </div>
+
+  <button class="btn-submit" id="submit-btn" onclick="submitRequest()">⚡ アプリを生成する</button>
+</div>
+
+<!-- 生成中 -->
+<div class="card" id="status-section">
+  <h2>生成中</h2>
+  <div class="status-box">
+    <div class="spinner"></div>
+    <div class="status-text" id="status-text">リクエストを送信しています...</div>
+    <div class="status-id" id="status-id"></div>
+  </div>
+</div>
+
+<!-- 完成 -->
+<div class="card" id="result-section">
+  <h2>完成しました！</h2>
+  <div class="result-box">
+    <div class="result-icon">🎉</div>
+    <div class="result-title" id="result-app-name">アプリが完成しました</div>
+    <a id="result-link" href="#" target="_blank" class="app-link">アプリを開く →</a>
+    <div class="app-url-text" id="result-url-text"></div>
+    <br>
+    <button class="btn-new" onclick="startNew()">＋ 新しいアプリを作る</button>
+  </div>
+</div>
+
+<!-- 履歴 -->
+<div class="card" id="history-section">
+  <h2>作成済みアプリ</h2>
+  <div id="history-list"></div>
+</div>
+
+<script>
+  var GAS_URL = "https://script.google.com/macros/s/AKfycbyfHn9LJJMs7KQNi0rxTVUTwvOlma_VwM8sXdabL693gx9h1xguR-vibe3D8MbZseR6/exec";
+  var pollTimer = null;
+  var currentId = null;
+
+  function setExample(name, desc) {
+    document.getElementById("app-name").value = name;
+    document.getElementById("app-desc").value = desc;
+  }
+
+  async function gasPost(body) {
+    try {
+      var res = await fetch(GAS_URL, {
+        method: "POST",
+        body: JSON.stringify(body),
+        redirect: "follow"
+      });
+      return await res.json();
+    } catch(e) {
+      return { success: false, error: e.message };
+    }
+  }
+
+  async function submitRequest() {
+    var name = (document.getElementById("app-name").value || "").trim();
+    var desc = (document.getElementById("app-desc").value || "").trim();
+    if (!name) { alert("アプリ名を入力してください"); return; }
+    if (!desc) { alert("アプリの説明を入力してください"); return; }
+
+    document.getElementById("submit-btn").disabled = true;
+    showSection("status");
+    setStatusText("リクエストを送信しています...");
+
+    var result = await gasPost({ action: "addAppRequest", name: name, text: desc });
+    if (!result || !result.success) {
+      alert("送信に失敗しました: " + (result && result.error ? result.error : "不明なエラー"));
+      document.getElementById("submit-btn").disabled = false;
+      showSection("form");
+      return;
+    }
+
+    currentId = result.id;
+    document.getElementById("status-id").textContent = "リクエストID: " + currentId;
+    setStatusText("AIがアプリを生成しています... (自動で更新されます)");
+
+    // localStorage に保存（ページリロード対応）
+    var pending = { id: currentId, name: name, ts: Date.now() };
+    localStorage.setItem("appfactory_pending", JSON.stringify(pending));
+
+    startPolling(currentId, name);
+  }
+
+  function startPolling(id, name) {
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = setInterval(async function() {
+      var result = await gasPost({ action: "getAppResult", id: id });
+      if (result && result.ready && result.url) {
+        clearInterval(pollTimer);
+        localStorage.removeItem("appfactory_pending");
+        // 履歴に保存
+        saveHistory(name || "アプリ", result.url);
+        showResult(name || "アプリ", result.url);
+      }
+    }, 5000);
+  }
+
+  function showResult(name, url) {
+    document.getElementById("result-app-name").textContent = name + " が完成しました！";
+    document.getElementById("result-link").href = url;
+    document.getElementById("result-url-text").textContent = url;
+    showSection("result");
+  }
+
+  function startNew() {
+    currentId = null;
+    document.getElementById("app-name").value = "";
+    document.getElementById("app-desc").value = "";
+    document.getElementById("submit-btn").disabled = false;
+    showSection("form");
+  }
+
+  function showSection(name) {
+    var sections = ["form", "status", "result"];
+    sections.forEach(function(s) {
+      var el = document.getElementById(s + "-section");
+      if (el) el.style.display = (s === name) ? "block" : "none";
+    });
+  }
+
+  function setStatusText(text) {
+    var el = document.getElementById("status-text");
+    if (el) el.textContent = text;
+  }
+
+  function saveHistory(name, url) {
+    var history = JSON.parse(localStorage.getItem("appfactory_history") || "[]");
+    history.unshift({ name: name, url: url, ts: Date.now() });
+    if (history.length > 20) history = history.slice(0, 20);
+    localStorage.setItem("appfactory_history", JSON.stringify(history));
+    renderHistory();
+  }
+
+  function renderHistory() {
+    var history = JSON.parse(localStorage.getItem("appfactory_history") || "[]");
+    if (!history.length) return;
+    document.getElementById("history-section").style.display = "block";
+    var list = document.getElementById("history-list");
+    list.innerHTML = history.map(function(item) {
+      var d = new Date(item.ts);
+      var dateStr = d.getFullYear() + "/" + (d.getMonth()+1) + "/" + d.getDate() + " " + d.getHours() + ":" + String(d.getMinutes()).padStart(2,"0");
+      return '<div class="history-item">'
+        + '<span class="history-name">📱 ' + esc(item.name) + '<br><small style="color:#555">' + dateStr + '</small></span>'
+        + '<a href="' + esc(item.url) + '" target="_blank" class="history-link">開く →</a>'
+        + '</div>';
+    }).join("");
+  }
+
+  function esc(s) {
+    return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
+
+  // ページ読み込み時：前回のリクエストを復元
+  window.addEventListener("load", function() {
+    renderHistory();
+    var pendingStr = localStorage.getItem("appfactory_pending");
+    if (pendingStr) {
+      try {
+        var pending = JSON.parse(pendingStr);
+        // 1時間以内のリクエストのみ復元
+        if (Date.now() - pending.ts < 3600000) {
+          currentId = pending.id;
+          showSection("status");
+          document.getElementById("status-id").textContent = "リクエストID: " + currentId;
+          setStatusText("前回のリクエストを確認しています...");
+          startPolling(pending.id, pending.name || "アプリ");
+          return;
+        } else {
+          localStorage.removeItem("appfactory_pending");
+        }
+      } catch(e) {}
+    }
+    showSection("form");
+  });
+</script>
+
+</body>
+</html>

@@ -290,7 +290,7 @@ function saveData(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){
 function loadData(k){ try{var d=localStorage.getItem(k);return d?JSON.parse(d):null;}catch(e){return null;} }
 
 // HTML最終更新日時（デプロイ時に自動更新）
-var HTML_UPDATED = "2026/03/12 17:30";
+var HTML_UPDATED = "2026/03/12 17:45";
 document.getElementById("ver-label").textContent = "HTML更新: " + HTML_UPDATED;
 // GAS最終更新日時を非同期で取得して表示
 fetch(GAS_URL + "?action=memoStatus")
@@ -3027,6 +3027,75 @@ function renderAdminPanel() {
   if (_adminFoundPatient) {
     renderAdminPatientCard(panel, _adminFoundPatient);
   }
+
+  // [変更] ── カレンダー同期セクション ──
+  var calSec = document.createElement("div");
+  calSec.className = "admin-section";
+  calSec.id = "adm-cal-sec";
+  var calCfg = loadData("sakura_cal_config") || { staff:"リピッテ予約", rakukan:"楽トレ", oxygen:"酸素カプセル", self:"セルフトレーニング" };
+  var lastSync = loadData("sakura_last_sync") || "";
+  calSec.innerHTML =
+    '<h4>📅 Googleカレンダー同期</h4>'
+    + '<div style="font-size:12px;color:#6b7280;margin-bottom:10px;">同期するカレンダー名を設定してください（Googleカレンダーの表示名と一致させること）</div>'
+    + '<div style="display:grid;grid-template-columns:auto 1fr;gap:6px 8px;align-items:center;margin-bottom:12px;">'
+    +   '<span style="font-size:12px;color:#374151;">スタッフ予約</span>'
+    +   '<input class="admin-inp" id="cal-staff" value="' + esc(calCfg.staff) + '" placeholder="リピッテ予約" style="padding:6px 10px;font-size:12px;" />'
+    +   '<span style="font-size:12px;color:#374151;">楽トレ</span>'
+    +   '<input class="admin-inp" id="cal-rakukan" value="' + esc(calCfg.rakukan) + '" placeholder="楽トレ" style="padding:6px 10px;font-size:12px;" />'
+    +   '<span style="font-size:12px;color:#374151;">酸素カプセル</span>'
+    +   '<input class="admin-inp" id="cal-oxygen" value="' + esc(calCfg.oxygen) + '" placeholder="酸素カプセル" style="padding:6px 10px;font-size:12px;" />'
+    +   '<span style="font-size:12px;color:#374151;">セルフトレーニング</span>'
+    +   '<input class="admin-inp" id="cal-self" value="' + esc(calCfg.self) + '" placeholder="セルフトレーニング" style="padding:6px 10px;font-size:12px;" />'
+    + '</div>'
+    + '<div style="display:flex;gap:8px;">'
+    +   '<button class="admin-btn" style="flex:1;padding:10px;" onclick="adminSaveCalConfig()">💾 設定を保存</button>'
+    +   '<button class="admin-btn green" style="flex:1;padding:10px;" onclick="adminSyncCalendar()">🔄 今すぐ同期</button>'
+    + '</div>'
+    + '<div id="adm-cal-status" style="margin-top:8px;font-size:12px;color:#6b7280;">'
+    + (lastSync ? '最終同期: ' + lastSync : '未同期')
+    + '</div>';
+  panel.appendChild(calSec);
+}
+
+// [変更] カレンダー設定保存
+function adminSaveCalConfig() {
+  var cfg = {
+    staff:   (document.getElementById("cal-staff")||{}).value || "リピッテ予約",
+    rakukan: (document.getElementById("cal-rakukan")||{}).value || "楽トレ",
+    oxygen:  (document.getElementById("cal-oxygen")||{}).value || "酸素カプセル",
+    self:    (document.getElementById("cal-self")||{}).value || "セルフトレーニング",
+  };
+  saveData("sakura_cal_config", cfg);
+  var st = document.getElementById("adm-cal-status");
+  if (st) { st.style.color="#059669"; st.textContent = "✅ 設定を保存しました"; }
+}
+
+// [変更] カレンダー同期実行
+function adminSyncCalendar() {
+  var st = document.getElementById("adm-cal-status");
+  if (st) { st.style.color="#1e40af"; st.textContent = "🔄 同期中..."; }
+  var cfg = loadData("sakura_cal_config") || {};
+  fetch(GAS_URL, { method:"POST", body:JSON.stringify({
+    token: AUTH_TOKEN,
+    action: "syncRepitteSaleStops",
+    calendarNames: cfg,
+  })})
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    var now = new Date();
+    var ts = now.getFullYear() + "/" + String(now.getMonth()+1).padStart(2,"0") + "/" + String(now.getDate()).padStart(2,"0")
+           + " " + String(now.getHours()).padStart(2,"0") + ":" + String(now.getMinutes()).padStart(2,"0");
+    saveData("sakura_last_sync", ts);
+    if (st) {
+      st.style.color = d.success ? "#059669" : "#dc2626";
+      st.textContent = d.success
+        ? "✅ 同期完了: " + ts + (d.count !== undefined ? "（" + d.count + "件）" : "")
+        : "❌ 同期失敗: " + (d.message || "エラー");
+    }
+  })
+  .catch(function(){
+    if (st) { st.style.color="#dc2626"; st.textContent = "❌ 通信エラー"; }
+  });
 }
 
 // 患者カード＋操作メニュー

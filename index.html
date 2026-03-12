@@ -291,7 +291,7 @@ function saveData(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){
 function loadData(k){ try{var d=localStorage.getItem(k);return d?JSON.parse(d):null;}catch(e){return null;} }
 
 // HTML最終更新日時（デプロイ時に自動更新）
-var HTML_UPDATED = "2026/03/12 18:00";
+var HTML_UPDATED = "2026/03/13 12:00";
 document.getElementById("ver-label").textContent = "HTML更新: " + HTML_UPDATED;
 // GAS最終更新日時を非同期で取得して表示
 fetch(GAS_URL + "?action=memoStatus")
@@ -623,7 +623,7 @@ function onPurpose(val) {
       reserv.seiKana = patient.seiKana || ""; reserv.meiKana = patient.meiKana || "";
       reserv.tel = patient.tel || "";
       reserv.whoConfirmed = true;
-      wait(function(){ checkPastReservations(); }, 400);
+      wait(function(){ askReservationTypeForUser(); }, 400);
     } else {
       wait(function(){ askWho(); }, 400);
     }
@@ -828,10 +828,33 @@ function askPurpose2() {
     reserv.seiKana = patient.seiKana || ""; reserv.meiKana = patient.meiKana || "";
     reserv.tel = patient.tel || "";
     reserv.whoConfirmed = true;
-    wait(function(){ checkPastReservations(); }, 400);
+    wait(function(){ askReservationTypeForUser(); }, 400);
   } else {
     wait(function(){ askWho(); }, 400);
   }
+}
+
+// ============================================================
+// ログイン済みユーザーの予約種別選択（一回 / 家族 / 定期）
+// ============================================================
+function askReservationTypeForUser() {
+  addBot("どのように予約しますか？");
+  wait(function(){
+    showChoices([
+      { label:"📅 一回の予約",                   val:"single"  },
+      { label:"👨‍👩‍👧 家族・同伴者も一緒に予約",   val:"family"  },
+      { label:"📆 定期予約（まとめて複数回）",  val:"regular" },
+    ], function(v){
+      if (v === "single") {
+        wait(function(){ checkPastReservations(); }, 400);
+      } else if (v === "family") {
+        reserv._forceFamily = true;
+        wait(function(){ checkPastReservations(); }, 400);
+      } else if (v === "regular") {
+        wait(function(){ askRegularMenu(); }, 400);
+      }
+    });
+  }, 600);
 }
 
 // ============================================================
@@ -2298,6 +2321,9 @@ function showRegSummary() {
 // ============================================================
 function onVisitAddress(address) {
   reserv.visitAddress = address;
+  // 住所を即時記録（確認失敗時も保持）
+  patient.lastAddress = address;
+  saveData("sakura_patient", patient);
   addBot("距離を確認しています...");
   showTyping();
   fetch(GAS_URL, { method:"POST", body:JSON.stringify({ token:AUTH_TOKEN, action:"calcDistance", address:address }) })
@@ -2319,8 +2345,13 @@ function onVisitAddress(address) {
           else { wait(function(){ addBot("またのご利用をお待ちしております 🌸"); }, 400); }
         });
       }, 600);
-    } else { addBot("住所の確認ができませんでした。\nお電話（078-984-5788）でご相談ください。","error"); showRestartButton(); }
-  });
+    } else {
+      // 住所は記録済み。距離確認失敗時はスタッフへの電話案内で続行
+      addBot("住所の確認ができませんでした。\nご住所は記録しました 📝\nお電話（078-984-5788）にてお見積もりいたします。");
+      wait(function(){ askPurpose(); }, 800);
+    }
+  })
+  .catch(function(){ removeTyping(); addBot("通信エラーが発生しました。\nお電話（078-984-5788）でご相談ください。","error"); });
 }
 
 // ============================================================
@@ -3302,7 +3333,9 @@ function renderAdminPatientCard(panel, d) {
     // 操作エリア（動的に切り替わる）
     + '<div id="adm-action-area"></div>';
 
-  panel.appendChild(card);
+  var ss = document.getElementById("adm-search-sec");
+  if (ss && ss.parentNode === panel) { panel.insertBefore(card, ss.nextSibling); }
+  else { panel.appendChild(card); }
 }
 
 // 患者をリセットして再検索
@@ -3377,7 +3410,9 @@ function adminSearchPatient() {
       html += '</div>';
       list.innerHTML = html;
       list._patients = patients;
-      panel.appendChild(list);
+      var ss2 = document.getElementById("adm-search-sec");
+      if (ss2 && ss2.parentNode === panel) { panel.insertBefore(list, ss2.nextSibling); }
+      else { panel.appendChild(list); }
     }
   })
   .catch(function(){

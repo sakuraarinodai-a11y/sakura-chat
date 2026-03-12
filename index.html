@@ -2506,6 +2506,11 @@ function execCancel(r, callback) {
 
 // [変更] その他・相談モード専用のAI会話関数（unknownでも会話継続）
 function handleConsultInput(text) {
+  // [変更] キーワード事前検知：アンケート・メニュー・料金
+  if (/アンケート|口コミ|感想|評価/.test(text)) {
+    step=""; addBot("アンケートを開始します 🌸");
+    wait(function(){ startSurvey(); }, 400); return;
+  }
   if (/メニュー|料金|値段|施術.*見|何.*メニュー|どんな.*施術|メニュー.*教|施術.*種類|メニュー.*あ[りる]/.test(text)) {
     step="";
     addBot("こちらがサクラ整骨院のメニューと料金です 🌸");
@@ -2551,7 +2556,11 @@ function handleConsultInput(text) {
 }
 
 function handleFreeInput(text) {
-  // [変更] メニュー・料金キーワードをクライアント側で事前検知（Gemini誤分類の補完）
+  // [変更] キーワード事前検知：アンケート・メニュー・料金（Gemini誤分類の補完）
+  if (/アンケート|口コミ|感想|評価/.test(text)) {
+    addBot("アンケートを開始します 🌸");
+    wait(function(){ startSurvey(); }, 400); return;
+  }
   if (/メニュー|料金|値段|施術.*見|何.*メニュー|どんな.*施術|メニュー.*教|施術.*種類|メニュー.*あ[りる]/.test(text)) {
     addBot("こちらがサクラ整骨院のメニューと料金です 🌸");
     wait(function(){ showMenuPriceCard(); }, 400);

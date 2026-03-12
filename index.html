@@ -37,6 +37,43 @@
   .slots { display:flex; flex-wrap:wrap; gap:8px; padding:0 16px 4px 56px; animation:up 0.3s ease; }
   .slotbtn { padding:8px 14px; background:white; border:1.5px solid var(--pink); border-radius:20px; font-size:13px; color:var(--pink-dark); cursor:pointer; }
   .slotbtn:hover { background:var(--pink-light); }
+  /* カレンダーUI */
+  .cal-wrap { background:white; border-radius:14px; border:1.5px solid var(--pink-light); overflow:hidden; }
+  .cal-header { display:flex; align-items:center; justify-content:space-between; padding:10px 14px; background:linear-gradient(90deg,var(--pink),#f9a8d4); color:white; }
+  .cal-month { font-size:14px; font-weight:700; }
+  .cal-nav { background:rgba(255,255,255,0.3); border:none; color:white; font-size:16px; cursor:pointer; border-radius:6px; padding:2px 10px; }
+  .cal-nav:hover { background:rgba(255,255,255,0.5); }
+  .cal-nav-disabled { color:rgba(255,255,255,0.3); padding:2px 10px; font-size:16px; }
+  .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; padding:8px; background:#fdf2f8; }
+  .cal-dow { text-align:center; font-size:11px; font-weight:700; color:#9ca3af; padding:4px 0; }
+  .cal-dow.cal-sun { color:#f87171; }
+  .cal-empty { }
+  .cal-day { text-align:center; padding:4px 0; border-radius:8px; cursor:pointer; font-size:13px; font-weight:500; background:white; border:1px solid transparent; min-height:38px; display:flex; flex-direction:column; align-items:center; justify-content:center; transition:background 0.15s; }
+  .cal-day:hover { background:var(--pink-light); border-color:var(--pink); }
+  .cal-day.cal-today { border-color:var(--pink); background:#fce7f3; font-weight:700; }
+  .cal-day.cal-today span { color:var(--pink-dark); }
+  .cal-day.cal-disabled, .cal-day.cal-past, .cal-day.cal-sun { background:#f9fafb; color:#d1d5db; cursor:default; pointer-events:none; }
+  .cal-day.cal-sun span { color:#fca5a5; }
+  .cal-note { font-size:9px; color:#9ca3af; line-height:1; }
+  .cal-day.cal-selected { background:var(--pink) !important; border-color:var(--pink-dark) !important; }
+  .cal-day.cal-selected span { color:white; }
+  /* 時間グリッド（旧） */
+  .time-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
+  .time-btn { padding:9px 4px; background:white; border:1.5px solid var(--pink); border-radius:10px; font-size:13px; font-weight:600; color:var(--pink-dark); cursor:pointer; text-align:center; }
+  .time-btn:hover { background:var(--pink-light); }
+  .time-btn:disabled { opacity:0.35; cursor:default; }
+  /* タイムスケジュール表示 */
+  .time-sched { display:flex; flex-direction:column; gap:2px; }
+  .time-sched-row { display:flex; align-items:flex-start; gap:8px; padding:5px 0; border-bottom:1px solid #fce7f3; }
+  .time-sched-row:last-child { border-bottom:none; }
+  .time-sched-label { font-size:11px; font-weight:700; color:#9ca3af; width:28px; padding-top:7px; flex-shrink:0; text-align:right; }
+  .time-sched-btns { display:flex; flex-wrap:wrap; gap:4px; flex:1; }
+  .time-btn-main { padding:7px 11px; background:white; border:1.5px solid var(--pink); border-radius:10px; font-size:13px; font-weight:600; color:var(--pink-dark); cursor:pointer; }
+  .time-btn-main:hover { background:var(--pink-light); }
+  .time-btn-main:disabled { opacity:0.35; cursor:default; }
+  .time-btn-sub { padding:5px 8px; background:#fdf2f8; border:1px solid #fce7f3; border-radius:8px; font-size:11px; color:#be185d; cursor:pointer; }
+  .time-btn-sub:hover { background:#fce7f3; }
+  .time-btn-sub:disabled { opacity:0.35; cursor:default; }
   .cardwrap { padding:0 16px 4px 56px; animation:up 0.3s ease; }
   .card { background:linear-gradient(135deg,#fff5f7,#fde8ee); border:2px solid var(--pink-light); border-radius:16px; padding:16px; font-size:13px; }
   .card.gold { background:linear-gradient(135deg,#fffbeb,#fef3c7); border-color:#fcd34d; }
@@ -141,17 +178,68 @@
   .admin-modal .mrow { display:flex; gap:8px; }
   .admin-proxy-bar { background:#fef9c3; border:1px solid #fde047; border-radius:10px; padding:8px 12px; font-size:12px; color:#713f12; margin-bottom:8px; display:flex; align-items:center; justify-content:space-between; }
   .admin-proxy-bar button { background:#dc2626; color:white; border:none; border-radius:6px; padding:4px 10px; font-size:11px; cursor:pointer; }
+
+  /* ===== バージョン表示 ===== */
+  .ver-badge { font-size:10px; color:rgba(255,255,255,0.6); margin-top:2px; letter-spacing:0.3px; }
+
+  /* ===== 不具合メモ ===== */
+  /* FABはモバイルのみ（デフォルト非表示、メディアクエリで表示） */
+  #memo-fab { position:fixed; bottom:80px; right:16px; width:44px; height:44px; background:#f59e0b; border:none; border-radius:50%; font-size:20px; cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,0.25); z-index:200; display:none; align-items:center; justify-content:center; transition:transform 0.2s; }
+  #memo-fab:hover { transform:scale(1.1); }
+  #memo-fab .memo-count { position:absolute; top:-4px; right:-4px; background:#ef4444; color:white; font-size:10px; font-weight:700; width:18px; height:18px; border-radius:50%; display:flex; align-items:center; justify-content:center; }
+  /* メモパネル共通 */
+  .memo-box { background:white; display:flex; flex-direction:column; overflow:hidden; }
+  /* デスクトップ: 常時表示の右サイドパネル */
+  @media (min-width:901px) {
+    #memo-panel { position:fixed; top:50%; transform:translateY(-50%); left:calc(50% + 256px); width:300px; max-height:82vh; display:flex; align-items:stretch; z-index:200; }
+    .memo-box { width:300px; max-height:82vh; border-radius:16px; box-shadow:0 8px 32px rgba(0,0,0,0.15); flex:1; }
+    .memo-close { display:none; }
+  }
+  /* モバイル: FAB＋オーバーレイ */
+  @media (max-width:900px) {
+    #memo-fab { display:flex; }
+    #memo-panel { position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:300; display:none; align-items:flex-end; justify-content:center; }
+    #memo-panel.open { display:flex; }
+    .memo-box { width:100%; max-width:480px; max-height:85vh; border-radius:20px 20px 0 0; }
+  }
+  .memo-hdr { padding:16px 20px 12px; border-bottom:1px solid #fde68a; display:flex; align-items:center; justify-content:space-between; background:#fffbeb; flex-shrink:0; }
+  .memo-hdr h3 { font-size:15px; font-weight:700; color:#92400e; }
+  .memo-hdr-right { display:flex; align-items:center; gap:8px; }
+  .memo-close { background:none; border:none; font-size:20px; cursor:pointer; color:#6b7280; line-height:1; padding:0; }
+  .memo-input-area { padding:12px 16px; border-bottom:1px solid #fef3c7; flex-shrink:0; }
+  .memo-input-area textarea { width:100%; border:1.5px solid #fcd34d; border-radius:10px; padding:10px 12px; font-size:13px; font-family:inherit; resize:none; outline:none; background:#fffbeb; color:#1f2937; line-height:1.6; }
+  .memo-input-area textarea:focus { border-color:#f59e0b; }
+  .memo-input-row { display:flex; gap:8px; margin-top:8px; }
+  .memo-add-btn { flex:1; padding:9px; background:#f59e0b; color:white; border:none; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; }
+  .memo-add-btn:hover { background:#d97706; }
+  .memo-copy-btn { padding:9px 14px; background:white; border:1.5px solid #fcd34d; border-radius:8px; font-size:12px; color:#92400e; cursor:pointer; white-space:nowrap; }
+  .memo-copy-btn:hover { background:#fef3c7; }
+  .memo-list { overflow-y:auto; padding:8px 16px 16px; flex:1; }
+  .memo-empty { text-align:center; color:#9ca3af; font-size:13px; padding:24px 0; }
+  .memo-item { background:#fffbeb; border:1px solid #fde68a; border-radius:10px; padding:10px 12px; margin-bottom:8px; position:relative; }
+  .memo-item-text { font-size:13px; color:#1f2937; line-height:1.7; white-space:pre-wrap; word-break:break-word; padding-right:28px; }
+  .memo-item-meta { font-size:10px; color:#9ca3af; margin-top:4px; }
+  .memo-item-del { position:absolute; top:8px; right:8px; background:none; border:none; font-size:16px; color:#d1d5db; cursor:pointer; line-height:1; padding:2px; }
+  .memo-item-del:hover { color:#ef4444; }
+  .memo-clear-btn { width:100%; padding:8px; background:white; border:1.5px solid #fca5a5; border-radius:8px; font-size:12px; color:#ef4444; cursor:pointer; margin-top:4px; }
+  .memo-clear-btn:hover { background:#fee2e2; }
+  .memo-item.done { background:#f0fdf4; border-color:#86efac; opacity:0.8; }
+  .memo-item.done .memo-item-text { text-decoration:line-through; color:#6b7280; }
+  .memo-done-badge { display:inline-block; font-size:10px; font-weight:700; color:#15803d; background:#dcfce7; border-radius:4px; padding:1px 6px; margin-bottom:4px; }
+  #copy-toast { position:fixed; bottom:80px; left:50%; transform:translateX(-50%); background:#1f2937; color:white; font-size:13px; padding:10px 20px; border-radius:20px; z-index:9999; opacity:0; transition:opacity 0.3s; pointer-events:none; white-space:nowrap; }
+  #copy-toast.show { opacity:1; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="header">
     <div class="hicon" id="hicon-logo" onclick="onLogoTap()" style="cursor:pointer;user-select:none;">🌸</div>
-    <div class="htxt"><h1>サクラ整骨院</h1><p>AI予約アシスタント</p></div>
+    <div class="htxt"><h1>サクラ整骨院</h1><p>AI予約アシスタント</p><div class="ver-badge" id="ver-label"></div></div>
     <div class="hstatus"><div class="dot"></div>受付中 <span id="admin-panel-btn" style="display:none;cursor:pointer;margin-left:6px;" onclick="renderAdminPanel()">🛠</span></div>
     <button onclick="hardRestart()" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);color:white;font-size:11px;padding:5px 10px;border-radius:12px;cursor:pointer;white-space:nowrap;flex-shrink:0;">🔄 最初から</button>
   </div>
   <div class="msgs" id="msgs"></div>
+  <div id="copy-toast">📋 テキストをコピーしました！そのまま貼り付けてください</div>
   <!-- 管理者パネル（通常時は非表示） -->
   <div id="admin-panel" style="display:none; flex:1; overflow-y:auto; padding:16px; flex-direction:column; gap:12px;"></div>
   <div class="footer">
@@ -159,6 +247,33 @@
       <textarea class="inp" id="inp" placeholder="上の選択肢からお選びください" rows="1" disabled></textarea>
       <button class="sbtn" id="sbtn" onclick="sendText()" disabled>➤</button>
     </div>
+  </div>
+</div>
+
+<!-- 不具合メモ フローティングボタン -->
+<button id="memo-fab" onclick="toggleMemoPanelOpen()" title="不具合メモ">
+  📝<span class="memo-count" id="memo-count" style="display:none;">0</span>
+</button>
+
+<!-- 不具合メモ パネル -->
+<div id="memo-panel" onclick="onMemoPanelBg(event)">
+  <div class="memo-box">
+    <div class="memo-hdr">
+      <h3>📝 不具合・改善メモ</h3>
+      <div class="memo-hdr-right">
+        <button class="memo-copy-btn" onclick="copyAllMemos()">📋 全コピー</button>
+        <button class="memo-close" onclick="toggleMemoPanelOpen()">✕</button>
+      </div>
+    </div>
+    <div class="memo-input-area">
+      <textarea id="memo-inp" rows="3" placeholder="気になった箇所・おかしい動作をメモしてください&#10;例：予約確認ボタンを押したら画面が止まった"></textarea>
+      <div class="memo-input-row">
+        <button class="memo-add-btn" onclick="addMemoItem()">＋ メモを追加</button>
+        <button class="memo-copy-btn" onclick="copyAllMemos()">📋 全コピー</button>
+      </div>
+      <div id="memo-hint" style="display:none;margin-top:6px;font-size:11px;color:#b45309;background:#fef3c7;border-radius:6px;padding:4px 8px;">不具合・改善メモを5文字以上で入力してください</div>
+    </div>
+    <div class="memo-list" id="memo-list"></div>
   </div>
 </div>
 
@@ -173,6 +288,10 @@ function pad(n){ return ("0"+n).slice(-2); }
 function row(l,v){ return '<div class="row"><span class="lbl">'+l+'</span><span>'+esc(v)+'</span></div>'; }
 function saveData(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){} }
 function loadData(k){ try{var d=localStorage.getItem(k);return d?JSON.parse(d):null;}catch(e){return null;} }
+
+var _vd = new Date();
+var APP_VERSION = "v1.1  2026-03-11 " + String(_vd.getHours()).padStart(2,"0") + ":" + String(_vd.getMinutes()).padStart(2,"0");
+document.getElementById("ver-label").textContent = APP_VERSION;
 
 var GAS_URL    = "https://script.google.com/macros/s/AKfycbyfHn9LJJMs7KQNi0rxTVUTwvOlma_VwM8sXdabL693gx9h1xguR-vibe3D8MbZseR6/exec";
 var AUTH_TOKEN = "Sk@2026_aRiNo#dAi";
@@ -349,36 +468,77 @@ function surveyStars() {
 
 function finishSurvey() {
   if (surveyAnswers.stars >= 4) {
-    addBot("ありがとうございます 🌸\n口コミ文を作成しています...");
+    // IDを付けて「作成中」メッセージを追加（後で特定して削除するため）
+    var w = document.createElement("div"); w.className = "bw"; w.id = "review-generating-msg";
+    w.innerHTML = '<div class="av">🌸</div><div class="bub bot">' + esc("ありがとうございます 🌸\n口コミ文を作成しています...") + '</div>';
+    document.getElementById("msgs").appendChild(w); scrollB();
     fetch(GAS_URL, {
       method:"POST",
       body: JSON.stringify({ token:AUTH_TOKEN, action:"generateReview", survey:surveyAnswers, patientName:patient.name }),
     })
     .then(function(r){return r.json();})
     .then(function(d) {
-      var msgs = document.getElementById("msgs");
-      msgs.lastElementChild.remove();
-      if (d.success) {
+      // IDで特定して削除（lastElementChildに依存しない）
+      var loadingMsg = document.getElementById("review-generating-msg");
+      if (loadingMsg) loadingMsg.remove();
+      if (d.success && d.review) {
         addBot("口コミ文をご用意しました 🌸\nそのままご利用いただいても、変更していただいても構いません。");
         wait(function() {
+          var reviewText = d.review;
           var wrap = document.createElement("div");
           wrap.className = "cardwrap";
           wrap.innerHTML = '<div class="card">'
             + '<h3>📝 口コミサンプル</h3>'
-            + '<p style="font-size:13px;line-height:1.8;color:#374151;">' + esc(d.review) + '</p>'
+            + '<p id="review-text" style="font-size:13px;line-height:1.8;color:#374151;">' + esc(reviewText) + '</p>'
             + '<div class="btnrow">'
-            + '<a href="https://g.page/r/Cc0rd9i5x96tEAE/review" target="_blank" class="btnok" style="text-decoration:none;">Googleに投稿する 👉</a>'
+            + '<a href="https://g.page/r/Cc0rd9i5x96tEAE/review" target="_blank" class="btnok" style="text-decoration:none;" onclick="copyReviewText()">'
+              + 'コピーしてGoogleに投稿する 👉</a>'
             + '<button class="btnng" onclick="skipReview()">またの機会に</button>'
-            + '</div></div>';
+            + '</div>'
+            + '<p style="font-size:11px;color:#9ca3af;margin-top:8px;">※ 投稿ページが開いたらそのまま貼り付けてください</p>'
+            + '</div>';
           document.getElementById("msgs").appendChild(wrap);
           scrollB();
         }, 400);
-      } else { wait(function(){ askPurpose(); }, 600); }
+      } else {
+        addBot("口コミ文の作成に失敗しました。\nお手数ですがまた後ほどご利用ください。");
+        wait(function(){ askPurpose(); }, 1200);
+      }
+    })
+    .catch(function() {
+      var loadingMsg = document.getElementById("review-generating-msg");
+      if (loadingMsg) loadingMsg.remove();
+      addBot("通信エラーが発生しました。\nお手数ですがまた後ほどご利用ください。");
+      wait(function(){ askPurpose(); }, 1200);
     });
   } else {
     addBot("ご意見をありがとうございます 🌸\nスタッフに必ずお伝えします。");
     fetch(GAS_URL, { method:"POST", body:JSON.stringify({ token:AUTH_TOKEN, action:"notifyStaff", type:"low_rating", survey:surveyAnswers, patient:patient.name }) });
     wait(function(){ askPurpose(); }, 800);
+  }
+}
+
+function copyReviewText() {
+  var el = document.getElementById("review-text");
+  if (!el) return;
+  var text = el.textContent || el.innerText || "";
+  var done = function() {
+    var toast = document.getElementById("copy-toast");
+    if (toast) {
+      toast.classList.add("show");
+      setTimeout(function(){ toast.classList.remove("show"); }, 3000);
+    }
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done).catch(done);
+  } else {
+    try {
+      var ta = document.createElement("textarea");
+      ta.value = text; ta.style.position = "fixed"; ta.style.top = "-9999px";
+      document.body.appendChild(ta); ta.select(); document.execCommand("copy");
+      document.body.removeChild(ta);
+    } catch(e) {}
+    done();
   }
 }
 
@@ -398,11 +558,10 @@ function askPurpose() {
   addBot("ご予約・ご相談はお気軽にどうぞ 🌸");
   wait(function() {
     var choices = [
-      { label:"📅 予約する",                          val:"reserve" },
-      { label:"📋 予約状況を確認したい",               val:"check" },
-      { label:"💎 月1回施療会員になって10%OFFしたい", val:"subsinfo" },
-      { label:"🚗 往診を希望したい",                   val:"visit" },
-      { label:"💬 その他・相談したい",                 val:"other" },
+      { label:"📅 予約する",                val:"reserve" },
+      { label:"📋 予約状況を確認したい",   val:"check" },
+      { label:"🚗 往診を希望したい",       val:"visit" },
+      { label:"💬 その他・相談したい",     val:"other" },
     ];
     if (patient.name) {
       choices.splice(2, 0, { label:"✏️ 登録情報を変更したい", val:"editprofile" });
@@ -556,24 +715,9 @@ function askPrevFeedbackOrPurpose() {
 
 // 1ヶ月以内リピーター用：メニューのみ選ばせる
 function askPurposeOnly() {
-  addBot("今日はどうしますか？ 🌸");
-  wait(function(){
-    showChoices([
-      { label:"痛み・不調を治したい",         val:"pain" },
-      { label:"酸素カプセル",                  val:"酸素カプセル" },
-      { label:"楽トレ（EMS）",                 val:"楽トレ" },
-      { label:"セルフトレーニング",            val:"セルフトレーニング" },
-      { label:"マンツーマントレーニング",      val:"マンツーマントレーニング" },
-    ], function(v){
-      if (v === "pain") {
-        wait(function(){ askLocationAndMenu(); }, 400);
-      } else {
-        reserv.menu = v;
-        addBot("「" + v + "」で予約します 🌸");
-        wait(function(){ askWho(); }, 400);
-      }
-    });
-  }, 600);
+  // 「今日はどうしますか？」を廃止 → メニュー未設定なら初診（保険）をデフォルトにして日付へ直行
+  if (!reserv.menu) { reserv.menu = "おすすめ初診"; }
+  wait(function(){ askWho(); }, 400);
 }
 
 function askLocationAndMenu() {
@@ -823,16 +967,7 @@ function onMenuSelect(val) {
     wait(function() {
       addBot("ご希望のメニューをお選びください。");
       wait(function() {
-        showChoices([
-          { label:"初診（保険）", val:"初診（保険）" },
-          { label:"施術15分　2,200円", val:"施術15分" },
-          { label:"施術30分　4,400円", val:"施術30分" },
-          { label:"施術60分　8,000円", val:"施術60分" },
-          { label:"施術75分　10,000円", val:"施術75分" },
-          { label:"楽トレ（EMS）390円", val:"楽トレ" },
-          { label:"酸素カプセル　390円", val:"酸素カプセル" },
-          { label:"マンツーマントレーニング", val:"マンツーマントレーニング" },
-        ], onMenuSelect);
+        showChoices(buildMenuChoices(), onMenuSelect);
       }, 600);
     }, 400);
     return;
@@ -863,23 +998,13 @@ function askRepeatMenu(lastMenu, useSame) {
     wait(function(){ askFamilyTogether(); }, 400);
     return;
   }
-  // 別メニューを選ぶ
-  addBot("今日はどうしますか？ 🌸");
+  // 別メニューを選ぶ（問診なし・日付へ直行）
+  addBot("メニューを選んでください 🌸");
   wait(function(){
-    showChoices([
-      { label:"痛み・不調を治したい",       val:"pain" },
-      { label:"酸素カプセル",                val:"酸素カプセル" },
-      { label:"楽トレ（EMS）",               val:"楽トレ" },
-      { label:"セルフトレーニング",          val:"セルフトレーニング" },
-      { label:"マンツーマントレーニング",    val:"マンツーマントレーニング" },
-    ], function(v){
-      if (v === "pain") {
-        wait(function(){ askLocationAndMenu(); }, 400);
-      } else {
-        reserv.menu = v;
-        addBot("「" + v + "」で予約します 🌸");
-        wait(function(){ askWho(); }, 400);
-      }
+    showChoices(buildMenuChoices(), function(v){
+      reserv.menu = v;
+      addBot("「" + reserv.menu + "」で予約します 🌸");
+      wait(function(){ askWho(); }, 400);
     });
   }, 600);
 }
@@ -996,45 +1121,134 @@ function askFamilyTogether() {
 function askMenuForNewUser() {
   addBot("ご希望のメニューをお選びください 🌸");
   wait(function(){
-    showChoices([
-      { label:"痛み・不調を治したい",       val:"pain" },
-      { label:"酸素カプセル",                val:"酸素カプセル" },
-      { label:"楽トレ（EMS）",               val:"楽トレ" },
-      { label:"セルフトレーニング",          val:"セルフトレーニング" },
-      { label:"マンツーマントレーニング",    val:"マンツーマントレーニング" },
-    ], function(v){
-      if (v === "pain") {
-        wait(function(){ askLocationAndMenu(); }, 400);
-      } else {
-        reserv.menu = v;
-        addBot("「" + v + "」で予約します 🌸");
-        wait(function(){ askFamilyTogether(); }, 400);
-      }
+    showChoices(buildMenuChoices(), function(v){
+      reserv.menu = v;
+      addBot("「" + v + "」で予約します 🌸");
+      wait(function(){ askFamilyTogether(); }, 400);
     });
   }, 600);
 }
 
+function buildMenuChoices() {
+  return [
+    { label:"⭐ おすすめ初診　3,000円〜10,000円", val:"おすすめ初診" },
+    { label:"初診（保険）　3,000円",               val:"初診（保険）" },
+    { label:"施療5分（保険）",                     val:"施術5分" },
+    { label:"施療15分",                            val:"施術15分" },
+    { label:"施療30分",                            val:"施術30分" },
+    { label:"施療60分",                            val:"施術60分" },
+    { label:"施療75分",                            val:"施術75分" },
+  ];
+}
+
 function askDate() {
-  addBot("ご希望の日はいつですか？");
+  addBot("ご希望の日をカレンダーから選んでください。");
   wait(function() {
-    var today = new Date();
-    var days = ["日","月","火","水","木","金","土"];
-    var choices = [];
-    for (var i=1;i<=8;i++) {
-      var d = new Date(today); d.setDate(today.getDate()+i);
-      if (d.getDay()===0) continue;
-      var suffix = (d.getDay() === 3 || d.getDay() === 6) ? "　※15時まで" : "";
-      choices.push({ label:(d.getMonth()+1)+"月"+d.getDate()+"日（"+days[d.getDay()]+"）"+suffix, val:d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()) });
-    }
-    choices.push({ label:"他の日を入力する", val:"other_date" });
-    showChoices(choices, onDateSelect);
+    var wrap = document.createElement("div");
+    wrap.className = "cardwrap"; wrap.id = "cal-cardwrap";
+    wrap.innerHTML = buildCalendarHTML(new Date());
+    document.getElementById("msgs").appendChild(wrap);
+    scrollB();
   }, 600);
+}
+
+function buildCalendarHTML(baseDate) {
+  var today = new Date(); today.setHours(0,0,0,0);
+  var maxDate = new Date(today); maxDate.setDate(today.getDate() + 60);
+  var year = baseDate.getFullYear();
+  var month = baseDate.getMonth();
+  var firstDay = new Date(year, month, 1);
+  var lastDay = new Date(year, month + 1, 0);
+  var startDow = firstDay.getDay();
+
+  var html = '<div class="cal-wrap">';
+  // ヘッダー
+  html += '<div class="cal-header">';
+  var prevDate = new Date(year, month - 1, 1);
+  var prevY = prevDate.getFullYear(), prevM = prevDate.getMonth();
+  var prevDisabled = (prevY < today.getFullYear()) || (prevY === today.getFullYear() && prevM < today.getMonth());
+  html += prevDisabled
+    ? '<span class="cal-nav-disabled">＜</span>'
+    : '<button class="cal-nav" onclick="changeCalMonth(' + prevY + ',' + prevM + ')">＜</button>';
+  html += '<span class="cal-month">' + year + '年' + (month+1) + '月</span>';
+  var nextDate = new Date(year, month + 2, 1);
+  var nextDisabled = (new Date(year, month + 1, 1)) > maxDate;
+  html += nextDisabled
+    ? '<span class="cal-nav-disabled">＞</span>'
+    : '<button class="cal-nav" onclick="changeCalMonth(' + nextDate.getFullYear() + ',' + nextDate.getMonth() + ')">＞</button>';
+  html += '</div>';
+  // 曜日ヘッダー
+  html += '<div class="cal-grid">';
+  ['日','月','火','水','木','金','土'].forEach(function(d, i) {
+    html += '<div class="cal-dow' + (i===0?' cal-sun':'') + '">' + d + '</div>';
+  });
+  // 空白
+  for (var i = 0; i < startDow; i++) html += '<div class="cal-empty"></div>';
+  // 日付
+  for (var d = 1; d <= lastDay.getDate(); d++) {
+    var date = new Date(year, month, d); date.setHours(0,0,0,0);
+    var dow = date.getDay();
+    var dateStr = year + '-' + pad(month+1) + '-' + pad(d);
+    var cls = 'cal-day';
+    var disabled = (dow === 0) || (date < today) || (date > maxDate);
+    if (dow === 0) cls += ' cal-sun';
+    if (date < today) cls += ' cal-past';
+    var todayMs = today.getTime();
+    if (date.getTime() === todayMs) cls += ' cal-today';
+    var note = (dow === 3 || dow === 6) ? '<span class="cal-note">〜15時</span>' : '';
+    if (disabled) {
+      html += '<div class="' + cls + ' cal-disabled"><span>' + d + '</span>' + note + '</div>';
+    } else {
+      html += '<div class="' + cls + '" onclick="onCalDateSelect(\'' + dateStr + '\')">' +
+        '<span>' + d + '</span>' + note + '</div>';
+    }
+  }
+  html += '</div></div>';
+  // 手入力リンク
+  html += '<div style="text-align:center;padding:8px 0 4px;">' +
+    '<button style="background:none;border:none;font-size:12px;color:#9ca3af;cursor:pointer;text-decoration:underline;" ' +
+    'onclick="calManualInput()">日付を直接入力する</button></div>';
+  return html;
+}
+
+function changeCalMonth(year, month) {
+  var wrap = document.querySelector('#cal-cardwrap .cal-wrap');
+  if (wrap) {
+    var newHtml = buildCalendarHTML(new Date(year, month, 1));
+    var tmp = document.createElement('div'); tmp.innerHTML = newHtml;
+    wrap.parentElement.replaceChild(tmp.firstChild, wrap);
+  }
+}
+
+function calManualInput() {
+  var cw = document.getElementById('cal-cardwrap');
+  if (cw) cw.remove();
+  addBot("ご希望の日付を入力してください。\n（例：2026-03-15）");
+  step = "date"; enableInput();
+}
+
+function onCalDateSelect(dateStr) {
+  // カレンダーを選択状態に
+  var cw = document.getElementById('cal-cardwrap');
+  if (cw) {
+    cw.querySelectorAll('.cal-day:not(.cal-disabled)').forEach(function(el) {
+      el.onclick = null; el.style.cursor = 'default';
+    });
+    var d = new Date(dateStr + 'T00:00:00');
+    var target = cw.querySelector('[onclick*="' + dateStr + '"]');
+    if (target) { target.classList.add('cal-selected'); target.onclick = null; }
+  }
+  reserv.date = dateStr;
+  var d2 = new Date(dateStr + 'T00:00:00');
+  var days2 = ["日","月","火","水","木","金","土"];
+  addUser((d2.getMonth()+1) + "月" + d2.getDate() + "日（" + days2[d2.getDay()] + "）");
+  wait(function(){ loadSlots(dateStr, "any"); }, 400);
 }
 
 function onDateSelect(val) {
   if (val === "other_date") { wait(function(){ addBot("ご希望の日付を入力してください。\n（例：2026-03-15）"); step="date"; enableInput(); }, 400); return; }
   reserv.date = val;
-  wait(function(){ askTimeZone(val); }, 400);
+  wait(function(){ loadSlots(val, "any"); }, 400);
 }
 
 function askTimeZone(date) {
@@ -1073,7 +1287,27 @@ function loadSlots(date, zone) {
       if (zone === "evening") return h >= 15;
       return true;
     });
+
+    // 当日の場合、現在時刻から2時間以内のスロットを除外
+    var todayStr = (function(){ var t=new Date(); return t.getFullYear()+"-"+pad(t.getMonth()+1)+"-"+pad(t.getDate()); })();
+    var cutoffNotice = false;
+    if (date === todayStr) {
+      var now = new Date();
+      var cutoff = new Date(now.getTime() + 2 * 60 * 60 * 1000); // 2時間後
+      filtered = filtered.filter(function(s){
+        var parts = s.split(":"); var sh = parseInt(parts[0]); var sm = parseInt(parts[1]);
+        var slotTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), sh, sm);
+        return slotTime >= cutoff;
+      });
+      cutoffNotice = true;
+    }
+
     if (filtered.length === 0) {
+      if (cutoffNotice) {
+        addBot("本日の残りの枠は受付終了です（当日2時間前まで受付）😢\nお電話（078-984-5788）にてご相談ください。");
+        wait(function(){ showChoices([{ label:"別の日にする", val:"other_day" }], function(){ wait(function(){ askDate(); }, 400); }); }, 600);
+        return;
+      }
       var zoneLabel = zone==="morning"?"午前中":zone==="noon"?"昼頃":"夕方以降";
       addBot(zoneLabel + "の空きがありませんでした 😢\n他の時間帯を確認しますか？");
       wait(function(){
@@ -1087,36 +1321,50 @@ function loadSlots(date, zone) {
       }, 600);
       return;
     }
-    addBot("空きがございます 🌸\nご希望の時間をお選びください。");
+    var slotMsg = "空きがございます 🌸\nご希望の時間をお選びください。";
+    if (cutoffNotice) slotMsg += "\n※ 当日は2時間前まで受付（以降はお電話で）";
+    addBot(slotMsg);
     wait(function(){
-      var wrap=document.createElement("div"); wrap.className="slots";
-      filtered.slice(0,12).forEach(function(s){
-        var btn=document.createElement("button"); btn.className="slotbtn"; btn.textContent=s;
-        btn.onclick=function(){
-          wrap.querySelectorAll("button").forEach(function(b){ b.disabled=true; b.style.opacity="0.4"; });
+      var outer = document.createElement("div"); outer.className = "cardwrap";
+      var sched = document.createElement("div"); sched.className = "time-sched";
+      outer.appendChild(sched);
+
+      // 時間ごとにグループ化
+      var hourGroups = {};
+      filtered.forEach(function(s){
+        var h = parseInt(s.split(":")[0]);
+        if (!hourGroups[h]) hourGroups[h] = [];
+        hourGroups[h].push(s);
+      });
+
+      function makeTimeBtn(s, cls) {
+        var btn = document.createElement("button");
+        btn.className = cls; btn.textContent = s;
+        btn.onclick = function(){
+          outer.querySelectorAll("button").forEach(function(b){ b.disabled = true; });
           onTimeSelect(s);
         };
-        wrap.appendChild(btn);
-      });
-      if (filtered.length > 12) {
-        var moreBtn = document.createElement("button");
-        moreBtn.className="slotbtn"; moreBtn.textContent="もっと見る…";
-        moreBtn.style.borderStyle="dashed";
-        moreBtn.onclick=function(){
-          moreBtn.remove();
-          filtered.slice(12).forEach(function(s){
-            var btn=document.createElement("button"); btn.className="slotbtn"; btn.textContent=s;
-            btn.onclick=function(){
-              wrap.querySelectorAll("button").forEach(function(b){ b.disabled=true; b.style.opacity="0.4"; });
-              onTimeSelect(s);
-            };
-            wrap.appendChild(btn);
-          });
-          scrollB();
-        };
-        wrap.appendChild(moreBtn);
+        return btn;
       }
-      document.getElementById("msgs").appendChild(wrap); scrollB();
+
+      Object.keys(hourGroups).sort(function(a,b){ return a-b; }).forEach(function(h){
+        var slots = hourGroups[h];
+        var mainSlots = slots.filter(function(s){ var m=parseInt(s.split(":")[1]); return m===0||m===30; });
+        var subSlots  = slots.filter(function(s){ var m=parseInt(s.split(":")[1]); return m!==0&&m!==30; });
+
+        var row = document.createElement("div"); row.className = "time-sched-row";
+        var lbl = document.createElement("div"); lbl.className = "time-sched-label";
+        lbl.textContent = h + "時";
+        row.appendChild(lbl);
+
+        var btns = document.createElement("div"); btns.className = "time-sched-btns";
+        mainSlots.forEach(function(s){ btns.appendChild(makeTimeBtn(s, "time-btn-main")); });
+        subSlots.forEach(function(s){  btns.appendChild(makeTimeBtn(s, "time-btn-sub"));  });
+        row.appendChild(btns);
+        sched.appendChild(row);
+      });
+
+      document.getElementById("msgs").appendChild(outer); scrollB();
     }, 600);
   })
   .catch(function(){ removeTyping(); addBot("空き時間の確認でエラーが発生しました 😢", "error"); });
@@ -1288,25 +1536,59 @@ function showFinalConfirm() {
       + '</div>';
     document.getElementById("msgs").appendChild(wrap); scrollB();
 
-    // 根本改善・定期ケア希望の方にはサブスクを再提案
-    if (reserv.motivation === "fundamental" || reserv.motivation === "longterm" || reserv.motivation === "maintain") {
-      wait(function() {
-        addBot("初診後、先生と一緒にケアプランを決めましょう 🌸\n\nサブスク会員（月7,800円）に入ると\n施術60分＋追加10%OFFで\n定期ケアがとてもお得になります。");
-        wait(function() {
-          var w2 = document.createElement("div"); w2.className = "cardwrap";
-          w2.innerHTML = '<div class="btnrow" style="padding:0 16px 4px 56px;">'
-            + '<a href="' + SQUARE_URL + '" target="_blank" class="btnok gold" style="text-decoration:none;">サブスクに申し込む ✨</a>'
-            + '</div>';
-          document.getElementById("msgs").appendChild(w2); scrollB();
-          wait(function(){ askRegularVisit(); }, 800);
-        }, 600);
-      }, 800);
-    } else {
-      wait(function(){ askRegularVisit(); }, 600);
-    }
+    // 予約完了後に任意の事前問診
+    wait(function() {
+      addBot("事前に症状をお伝えいただけますか？（任意・スキップ可）\n初めての方・1ヶ月以上ぶりの方はご協力いただけると助かります 🌸");
+      wait(function(){
+        showChoices([
+          { label:"症状を伝える",   val:"survey_yes" },
+          { label:"スキップする",   val:"survey_no" },
+        ], function(sv){
+          if (sv === "survey_yes") {
+            wait(function(){ askOptionalSurvey(); }, 400);
+          } else {
+            wait(function(){ askRegularVisit(); }, 400);
+          }
+        });
+      }, 600);
+    }, 600);
   }, 400);
 }
 
+
+// ============================================================
+// 予約後・任意の事前問診（簡易版）
+// ============================================================
+function askOptionalSurvey() {
+  addBot("どのあたりが気になりますか？");
+  wait(function(){
+    showChoices([
+      { label:"腰・お尻", val:"腰・お尻" },
+      { label:"肩・首",   val:"肩・首" },
+      { label:"膝・足",   val:"膝・足" },
+      { label:"手・腕",   val:"手・腕" },
+      { label:"交通事故でのケガ", val:"交通事故" },
+      { label:"その他",   val:"その他" },
+    ], function(loc){
+      reserv.location = loc;
+      wait(function(){
+        addBot("いつ頃から痛みがありますか？");
+        wait(function(){
+          showChoices([
+            { label:"今日突然痛くなった", val:"today" },
+            { label:"数日前から",         val:"fewdays" },
+            { label:"1週間以上前から",    val:"week" },
+            { label:"ずっと前から慢性的に", val:"chronic" },
+          ], function(dur){
+            reserv.duration = dur;
+            addBot("ありがとうございます 🌸\nスタッフに事前にお伝えします。");
+            wait(function(){ askRegularVisit(); }, 600);
+          });
+        }, 600);
+      }, 400);
+    });
+  }, 600);
+}
 
 // ============================================================
 // 定期来院提案（前回通院10日以内 & 次回予約0〜1件）
@@ -2303,7 +2585,49 @@ function sendText() {
     patient.sei=reserv.sei; patient.mei=reserv.mei;
     patient.name=reserv.sei+(reserv.mei?" "+reserv.mei:"");
     saveData("sakura_patient", patient);
-    wait(function(){ addBot("フリガナを教えていただけますか？\n（例：ヤマダ タロウ）"); step="kana"; enableInput(); }, 400);
+    // 既存患者を検索してフリガナ候補を提示
+    addBot("お名前で確認しています 🔍");
+    fetch(GAS_URL, { method:"POST", body:JSON.stringify({ token:AUTH_TOKEN, action:"searchPatient", name:patient.name }) })
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if (d.success && d.found && d.patients && d.patients.length > 0) {
+          var pts = d.patients.slice(0, 5);
+          var choices = pts.map(function(pt, i){
+            var kana = ((pt.seiKana||"") + " " + (pt.meiKana||"")).trim();
+            var label = ((pt.sei||"") + (pt.mei?" "+pt.mei:"")).trim() || pt.name || "";
+            return { label:"👤 " + label + "（" + kana + "）", val:"pt_" + i };
+          });
+          choices.push({ label:"この中にいない", val:"pt_new" });
+          addBot("以下の登録が見つかりました。\nあなたはどちらですか？");
+          showChoices(choices, function(v){
+            if (v === "pt_new") {
+              wait(function(){ addBot("フリガナを教えていただけますか？\n（例：ヤマダ タロウ）"); step="kana"; enableInput(); }, 400);
+            } else {
+              var idx = parseInt(v.replace("pt_",""));
+              var found = pts[idx];
+              if (found) {
+                reserv.sei = found.sei || reserv.sei; reserv.mei = found.mei || "";
+                reserv.seiKana = found.seiKana || ""; reserv.meiKana = found.meiKana || "";
+                reserv.tel = found.tel || "";
+                patient.sei = reserv.sei; patient.mei = reserv.mei;
+                patient.seiKana = reserv.seiKana; patient.meiKana = reserv.meiKana;
+                patient.tel = reserv.tel; saveData("sakura_patient", patient);
+                addBot((reserv.sei||"") + (reserv.mei?" "+reserv.mei:"") + " さんですね 🌸");
+                if (reserv.tel) {
+                  wait(function(){ askMenuForNewUser(); }, 600);
+                } else {
+                  wait(function(){ showChoices([{label:"📱 電話番号を入力する",val:"tel"},{label:"💚 LINEでお友達登録する",val:"line"}],onContactSelect); }, 600);
+                }
+              }
+            }
+          });
+        } else {
+          wait(function(){ addBot("フリガナを教えていただけますか？\n（例：ヤマダ タロウ）"); step="kana"; enableInput(); }, 400);
+        }
+      })
+      .catch(function(){
+        wait(function(){ addBot("フリガナを教えていただけますか？\n（例：ヤマダ タロウ）"); step="kana"; enableInput(); }, 400);
+      });
   } else if (step==="kana") {
     step=""; var kp=text.trim().split(/[\s　]+/); reserv.seiKana=kp[0]||text; reserv.meiKana=kp[1]||"";
     // フリガナを即時保存
@@ -2321,7 +2645,7 @@ function sendText() {
       wait(function(){ askFamilyTogether(); }, 400);
     }
   } else if (step==="date") {
-    step=""; reserv.date=text; wait(function(){ askTimeZone(text); }, 400);
+    step=""; reserv.date=text; wait(function(){ loadSlots(text, "any"); }, 400);
   } else if (step==="family_name") {
     step=""; var fp=text.trim().split(/[\s　]+/);
     window._tmpFamily={name:text.trim(),sei:fp[0]||text,mei:fp[1]||"",seiKana:"",meiKana:"",tel:""};
@@ -2433,15 +2757,13 @@ function showMenuPriceCard() {
     html += '</div>';
   });
   html += '<div class="btnrow" style="margin-top:14px;flex-direction:column;gap:8px;">';
-  html += '<button class="btnok" onclick="onMenuPriceReserve(this)">このメニューで予約する ▼</button>';
+  html += '<button class="btnok" id="menu-price-reserve-btn">このメニューで予約する ▼</button>';
   html += '<button class="btnng" onclick="onMenuPriceBack()">最初に戻る</button>';
   html += '</div></div>';
   wrap.innerHTML = html;
   document.getElementById("msgs").appendChild(wrap);
   document.getElementById("msgs").scrollTop = 9999;
-  // メニュー選択ボタンを展開
-  wrap.querySelector(".btnok").addEventListener("click", function(e) {
-    e.preventDefault();
+  wrap.querySelector("#menu-price-reserve-btn").addEventListener("click", function() {
     var menuChoices = [];
     menus.forEach(function(cat){ cat.items.forEach(function(item){ menuChoices.push({ label:item.name+" ("+item.price+")", val:item.val }); }); });
     disableAll();
@@ -2747,8 +3069,13 @@ function adminSearchPatient() {
   })})
   .then(function(r){ return r.json(); })
   .then(function(d){
-    if (!d.success || !d.found) {
-      msg.innerHTML = '<span style="color:#f87171;font-size:13px;">患者が見つかりませんでした</span>';
+    if (!d.success) {
+      var errMsg = d.message || "検索エラーが発生しました";
+      msg.innerHTML = '<span style="color:#f87171;font-size:13px;">⚠️ ' + esc(errMsg) + '</span>';
+      return;
+    }
+    if (!d.found) {
+      msg.innerHTML = '<span style="color:#f87171;font-size:13px;">患者が見つかりませんでした（条件を変えてお試しください）</span>';
       return;
     }
 
@@ -3097,6 +3424,161 @@ function cancelAdminLogin() {
   addBot("こんにちは！\nサクラ整骨院のAIアシスタントです 🌸");
   wait(function(){ askPurpose(); }, 600);
 }
+
+// ============================================================
+// 不具合メモ機能
+// ============================================================
+var MEMO_KEY = "sakura_debug_memos";
+
+function loadMemos() {
+  return loadData(MEMO_KEY) || [];
+}
+
+function saveMemos(memos) {
+  saveData(MEMO_KEY, memos);
+  renderMemoList();
+  updateMemoBadge();
+  // GASスプレッドシートへ同期（エラーは無視）
+  fetch(GAS_URL, { method:"POST", body:JSON.stringify({ token:AUTH_TOKEN, action:"saveMemos", memos:memos }) }).catch(function(){});
+}
+
+function updateMemoBadge() {
+  var memos = loadMemos();
+  var badge = document.getElementById("memo-count");
+  if (!badge) return;
+  if (memos.length > 0) {
+    badge.textContent = memos.length;
+    badge.style.display = "flex";
+  } else {
+    badge.style.display = "none";
+  }
+}
+
+function toggleMemoPanelOpen() {
+  var panel = document.getElementById("memo-panel");
+  if (panel.classList.contains("open")) {
+    panel.classList.remove("open");
+  } else {
+    panel.classList.add("open");
+    renderMemoList();
+    setTimeout(function(){ document.getElementById("memo-inp").focus(); }, 200);
+  }
+}
+
+function onMemoPanelBg(e) {
+  if (e.target === document.getElementById("memo-panel")) toggleMemoPanelOpen();
+}
+
+function addMemoItem() {
+  var inp = document.getElementById("memo-inp");
+  var text = inp.value.trim();
+  if (!text) return;
+  // 明らかなテスト入力・短すぎる入力はスキップ
+  var testPatterns = /^(あ+|test|てすと|テスト|ok|OK|はい|いいえ|a+|ー+|…+|\.+|,+)$/i;
+  if (text.length < 5 || testPatterns.test(text)) {
+    inp.value = "";
+    var hint = document.getElementById("memo-hint");
+    if (hint) { hint.style.display = "block"; setTimeout(function(){ hint.style.display = "none"; }, 3000); }
+    return;
+  }
+  var memos = loadMemos();
+  var now = new Date();
+  var ts = (now.getMonth()+1) + "/" + now.getDate() + " " + pad(now.getHours()) + ":" + pad(now.getMinutes());
+  // 自動コンテキスト取得
+  var stepLabel = (typeof step !== "undefined" && step) ? step : "（開始前）";
+  var lastBotMsg = "";
+  var bots = document.querySelectorAll("#msgs .bub.bot");
+  if (bots.length) lastBotMsg = bots[bots.length-1].textContent.trim().substring(0, 40);
+  var ctx = "📍" + stepLabel + (lastBotMsg ? " ／ 直前：「" + lastBotMsg + "…」" : "");
+  memos.unshift({ text: text, ts: ts, ctx: ctx, id: Date.now() });
+  saveMemos(memos);
+  inp.value = "";
+  inp.focus();
+}
+
+function deleteMemoItem(id) {
+  var memos = loadMemos().filter(function(m){ return m.id !== id; });
+  saveMemos(memos);
+}
+
+function clearAllMemos() {
+  if (!confirm("すべてのメモを削除しますか？")) return;
+  saveMemos([]);
+}
+
+function copyAllMemos() {
+  var memos = loadMemos();
+  if (memos.length === 0) { alert("メモがありません"); return; }
+  var text = "【不具合・改善メモ】\n\n" + memos.map(function(m, i){
+    return (i+1) + ". [" + m.ts + "] " + (m.ctx || "") + "\n" + m.text;
+  }).join("\n\n");
+  navigator.clipboard.writeText(text).then(function(){
+    var btn = document.querySelector(".memo-copy-btn");
+    var orig = btn ? btn.textContent : "";
+    if (btn) { btn.textContent = "✓ コピー完了"; setTimeout(function(){ btn.textContent = orig; }, 2000); }
+  }).catch(function(){ alert("コピーに失敗しました"); });
+}
+
+function renderMemoList() {
+  var list = document.getElementById("memo-list");
+  if (!list) return;
+  var memos = loadMemos();
+  if (memos.length === 0) {
+    list.innerHTML = '<div class="memo-empty">メモはまだありません 📝<br><span style="font-size:12px;">気になった点をどんどん記録してください</span></div>';
+    return;
+  }
+  var html = memos.map(function(m){
+    var isDone = m.status === 'done';
+    return '<div class="memo-item' + (isDone ? ' done' : '') + '">'
+      + (isDone ? '<div class="memo-done-badge">✅ 修正済み</div>' : '')
+      + '<button class="memo-item-del" onclick="deleteMemoItem(' + m.id + ')">✕</button>'
+      + '<div class="memo-item-text">' + esc(m.text) + '</div>'
+      + '<div class="memo-item-meta">🕐 ' + esc(m.ts) + (m.ctx ? '<br>' + esc(m.ctx) : '') + '</div>'
+      + '</div>';
+  }).join("");
+  html += '<button class="memo-clear-btn" onclick="clearAllMemos()">🗑 すべて削除</button>';
+  list.innerHTML = html;
+}
+
+// メモ入力欄でCtrl+Enterで追加
+document.getElementById("memo-inp").addEventListener("keydown", function(e){
+  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); addMemoItem(); }
+});
+
+// GASのpending一覧と照合してdone状態を同期
+function syncMemoStatus() {
+  fetch(GAS_URL + '?action=memoStatus')
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      var serverMemos = d.memos || [];
+      var pendingIds = serverMemos.map(function(m){ return String(m.id); });
+      var memos = loadMemos();
+      var localIds = memos.map(function(m){ return String(m.id); });
+      var changed = false;
+
+      // 既存ローカルメモのdone/pending状態を更新
+      memos.forEach(function(m){
+        var newStatus = (pendingIds.indexOf(String(m.id)) !== -1) ? 'pending' : 'done';
+        if (m.status !== newStatus) { m.status = newStatus; changed = true; }
+      });
+
+      // サーバーにあってローカルにないメモを追加（他PCで書いたメモを同期）
+      serverMemos.forEach(function(sm){
+        if (localIds.indexOf(String(sm.id)) === -1) {
+          memos.push({ text: sm.text, ts: sm.ts, ctx: sm.ctx || "", id: sm.id, status: 'pending' });
+          changed = true;
+        }
+      });
+
+      if (changed) { saveData(MEMO_KEY, memos); renderMemoList(); updateMemoBadge(); }
+    })
+    .catch(function(){});
+}
+
+// 初期化（バッジ更新＋サイドパネル初期表示＋GASとdone状態同期）
+updateMemoBadge();
+renderMemoList();
+syncMemoStatus();
 
 </script>
 </body>

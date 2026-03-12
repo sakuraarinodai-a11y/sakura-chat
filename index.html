@@ -2818,21 +2818,26 @@ function sendText() {
 // ユーティリティ
 // ============================================================
 function showMenuPriceCard() {
+  // [変更] duration（施術時間）フィールドを追加
   var menus = [
     { category:"🩺 保険診療", items:[
-      { name:"初診（保険）", price:"約3,000円", note:"検査料込・初めての方", val:"初診（保険）" },
-      { name:"おすすめ初診", price:"初診料＋施療料＋カウンセリング料", note:"施療料は症状・時間により異なる", val:"おすすめ初診" },
+      { name:"初診（保険）", price:"約3,000円", note:"検査料込・初めての方", val:"初診（保険）", duration:30 },
+      { name:"おすすめ初診", price:"初診料＋施療料＋カウンセリング料", note:"施療料は症状・時間により異なる", val:"おすすめ初診", duration:60 },
     ]},
     { category:"💆 自費施術", items:[
-      { name:"施術15分", price:"2,200円", note:"軽いケアに", val:"施術15分" },
-      { name:"施術30分", price:"4,400円", note:"定期メンテに", val:"施術30分" },
-      { name:"施術60分", price:"8,000円", note:"しっかりケア", val:"施術60分" },
-      { name:"施術75分", price:"10,000円", note:"全身トータル", val:"施術75分" },
+      { name:"施術15分", price:"2,200円", note:"軽いケアに", val:"施術15分", duration:15 },
+      { name:"施術30分", price:"4,400円", note:"定期メンテに", val:"施術30分", duration:30 },
+      { name:"施術60分", price:"8,000円", note:"しっかりケア", val:"施術60分", duration:60 },
+      { name:"施術75分", price:"10,000円", note:"全身トータル", val:"施術75分", duration:75 },
     ]},
     { category:"⚡ 専門メニュー（各390円）", items:[
-      { name:"楽トレ（EMS）", price:"390円", note:"筋肉トレーニング", val:"楽トレ" },
-      { name:"酸素カプセル", price:"390円", note:"疲労回復40分", val:"酸素カプセル" },
-      { name:"コンディショニング", price:"390円", note:"体のメンテナンス", val:"コンディショニング" },
+      { name:"楽トレ（EMS）", price:"390円", note:"筋肉トレーニング", val:"楽トレ", duration:20 },
+      { name:"酸素カプセル", price:"390円", note:"疲労回復", val:"酸素カプセル", duration:40 },
+      { name:"コンディショニング", price:"390円", note:"体のメンテナンス", val:"コンディショニング", duration:20 },
+    ]},
+    { category:"🚗 交通事故", items:[
+      { name:"交通事故治療", price:"自賠責・保険適用", note:"本格的な治療", val:"交通事故治療", duration:30 },
+      { name:"交通事故無料相談", price:"無料", note:"まずはご相談", val:"交通事故無料相談", duration:10 },
     ]},
   ];
   var wrap = document.createElement("div"); wrap.className="cardwrap";
@@ -2841,8 +2846,9 @@ function showMenuPriceCard() {
   menus.forEach(function(cat) {
     html += '<div style="margin-bottom:10px;"><div style="font-size:12px;font-weight:700;color:var(--pink-dark);margin-bottom:6px;">'+cat.category+'</div>';
     cat.items.forEach(function(item) {
+      var durLabel = item.duration ? '<span style="background:#fde8ee;color:var(--pink-dark);font-size:10px;padding:1px 5px;border-radius:8px;margin-left:4px;">⏱'+item.duration+'分</span>' : '';
       html += '<div class="row" style="align-items:center;">'
-        + '<span class="lbl" style="font-size:13px;">'+item.name+'<br><span style="font-size:11px;color:#9ca3af;">'+item.note+'</span></span>'
+        + '<span class="lbl" style="font-size:13px;">'+item.name+durLabel+'<br><span style="font-size:11px;color:#9ca3af;">'+item.note+'</span></span>'
         + '<span style="font-weight:700;color:var(--pink-dark);font-size:13px;white-space:nowrap;">'+item.price+'</span>'
         + '</div>';
     });
@@ -2857,7 +2863,8 @@ function showMenuPriceCard() {
   document.getElementById("msgs").scrollTop = 9999;
   wrap.querySelector("#menu-price-reserve-btn").addEventListener("click", function() {
     var menuChoices = [];
-    menus.forEach(function(cat){ cat.items.forEach(function(item){ menuChoices.push({ label:item.name+" ("+item.price+")", val:item.val }); }); });
+    // [変更] 選択肢に施術時間を追加表示
+    menus.forEach(function(cat){ cat.items.forEach(function(item){ menuChoices.push({ label:item.name+(item.duration?"（"+item.duration+"分）":"")+" "+item.price, val:item.val }); }); });
     // [変更] disableAll()未定義バグ修正：カードのボタンのみ無効化してからchoicesを表示
     wrap.querySelectorAll("button").forEach(function(b){ b.disabled=true; b.style.opacity="0.4"; });
     wait(function(){

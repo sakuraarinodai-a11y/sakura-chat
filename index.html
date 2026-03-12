@@ -495,41 +495,70 @@ function finishSurvey() {
       // IDで特定して削除（lastElementChildに依存しない）
       var loadingMsg = document.getElementById("review-generating-msg");
       if (loadingMsg) loadingMsg.remove();
-      if (d.success && d.review) {
-        addBot("口コミ文をご用意しました 🌸\nそのままご利用いただいても、変更していただいても構いません。");
-        wait(function() {
-          var reviewText = d.review;
-          var wrap = document.createElement("div");
-          wrap.className = "cardwrap";
-          wrap.innerHTML = '<div class="card">'
-            + '<h3>📝 口コミサンプル</h3>'
-            + '<p id="review-text" style="font-size:13px;line-height:1.8;color:#374151;">' + esc(reviewText) + '</p>'
-            + '<div class="btnrow">'
-            + '<a href="https://g.page/r/Cc0rd9i5x96tEAE/review" target="_blank" class="btnok" style="text-decoration:none;" onclick="copyReviewText()">'
-              + 'コピーしてGoogleに投稿する 👉</a>'
-            + '<button class="btnng" onclick="skipReview()">またの機会に</button>'
-            + '</div>'
-            + '<p style="font-size:11px;color:#9ca3af;margin-top:8px;">※ 投稿ページが開いたらそのまま貼り付けてください</p>'
-            + '</div>';
-          document.getElementById("msgs").appendChild(wrap);
-          scrollB();
-        }, 400);
-      } else {
-        addBot("口コミ文の作成に失敗しました。\nお手数ですがまた後ほどご利用ください。");
-        wait(function(){ askPurpose(); }, 1200);
-      }
+      // [変更] AI失敗時もフォールバックテンプレートでシームレスにGoogle投稿へ
+      var reviewText = (d.success && d.review) ? d.review : _buildFallbackReview();
+      var msgText = (d.success && d.review)
+        ? "口コミ文をご用意しました 🌸\nそのままご利用いただいても、変更していただいても構いません。"
+        : "口コミ文のサンプルをご用意しました 🌸\n内容を確認してそのままご利用ください。";
+      addBot(msgText);
+      wait(function() {
+        var wrap = document.createElement("div");
+        wrap.className = "cardwrap";
+        wrap.innerHTML = '<div class="card">'
+          + '<h3>📝 口コミサンプル</h3>'
+          + '<p id="review-text" style="font-size:13px;line-height:1.8;color:#374151;">' + esc(reviewText) + '</p>'
+          + '<div class="btnrow">'
+          + '<a href="https://g.page/r/Cc0rd9i5x96tEAE/review" target="_blank" class="btnok" style="text-decoration:none;" onclick="copyReviewText()">'
+            + 'コピーしてGoogleに投稿する 👉</a>'
+          + '<button class="btnng" onclick="skipReview()">またの機会に</button>'
+          + '</div>'
+          + '<p style="font-size:11px;color:#9ca3af;margin-top:8px;">※ 投稿ページが開いたらそのまま貼り付けてください</p>'
+          + '</div>';
+        document.getElementById("msgs").appendChild(wrap);
+        scrollB();
+      }, 400);
     })
     .catch(function() {
       var loadingMsg = document.getElementById("review-generating-msg");
       if (loadingMsg) loadingMsg.remove();
-      addBot("通信エラーが発生しました。\nお手数ですがまた後ほどご利用ください。");
-      wait(function(){ askPurpose(); }, 1200);
+      // [変更] 通信エラー時もフォールバックで継続
+      addBot("口コミ文のサンプルをご用意しました 🌸");
+      wait(function() {
+        var wrap = document.createElement("div");
+        wrap.className = "cardwrap";
+        wrap.innerHTML = '<div class="card">'
+          + '<h3>📝 口コミサンプル</h3>'
+          + '<p id="review-text" style="font-size:13px;line-height:1.8;color:#374151;">' + esc(_buildFallbackReview()) + '</p>'
+          + '<div class="btnrow">'
+          + '<a href="https://g.page/r/Cc0rd9i5x96tEAE/review" target="_blank" class="btnok" style="text-decoration:none;" onclick="copyReviewText()">'
+            + 'コピーしてGoogleに投稿する 👉</a>'
+          + '<button class="btnng" onclick="skipReview()">またの機会に</button>'
+          + '</div>'
+          + '<p style="font-size:11px;color:#9ca3af;margin-top:8px;">※ 投稿ページが開いたらそのまま貼り付けてください</p>'
+          + '</div>';
+        document.getElementById("msgs").appendChild(wrap);
+        scrollB();
+      }, 400);
     });
   } else {
     addBot("ご意見をありがとうございます 🌸\nスタッフに必ずお伝えします。");
     fetch(GAS_URL, { method:"POST", body:JSON.stringify({ token:AUTH_TOKEN, action:"notifyStaff", type:"low_rating", survey:surveyAnswers, patient:patient.name }) });
     wait(function(){ askPurpose(); }, 800);
   }
+}
+
+// [変更] AI生成失敗時のフォールバック口コミテンプレート
+function _buildFallbackReview() {
+  var stars = surveyAnswers.stars || 5;
+  var symptom = surveyAnswers.symptom || "身体の不調";
+  var impression = surveyAnswers.impression || "";
+  var lines = ["サクラ整骨院に通院しました。"];
+  lines.push(symptom + "で悩んでいましたが、丁寧な施術でとても楽になりました。");
+  if (impression) lines.push(impression);
+  if (stars >= 5) lines.push("スタッフの対応も親切で、また利用したいと思います。");
+  else if (stars >= 4) lines.push("全体的に満足のいく施術でした。");
+  lines.push("神戸市北区でお身体のお悩みがある方におすすめです。");
+  return lines.join("\n");
 }
 
 function copyReviewText() {

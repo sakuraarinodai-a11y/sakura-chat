@@ -3173,10 +3173,17 @@ function renderAdminPanel() {
   calSec.className = "admin-section";
   calSec.id = "adm-cal-sec";
   var calCfg = loadData("sakura_cal_config") || { staff:"リピッテ予約", rakukan:"楽トレ", oxygen:"酸素カプセル", self:"セルフトレーニング" };
+  var calAccount = loadData("sakura_cal_account") || "";
   var lastSync = loadData("sakura_last_sync") || "";
   calSec.innerHTML =
     '<h4>📅 Googleカレンダー同期</h4>'
-    + '<div style="font-size:12px;color:#6b7280;margin-bottom:10px;">同期するカレンダー名を設定してください（Googleカレンダーの表示名と一致させること）</div>'
+    + '<div style="font-size:12px;color:#6b7280;margin-bottom:10px;">同期するGoogleアカウントとカレンダー名を設定してください</div>'
+    + '<div style="margin-bottom:10px;">'
+    +   '<div style="font-size:12px;color:#374151;margin-bottom:4px;font-weight:600;">🔑 Googleアカウント（カレンダーの所有者）</div>'
+    +   '<input class="admin-inp" id="cal-account" value="' + esc(calAccount) + '" placeholder="例：sakura-clinic@gmail.com" style="width:100%;box-sizing:border-box;padding:6px 10px;font-size:12px;" />'
+    +   '<div style="font-size:11px;color:#9ca3af;margin-top:3px;">※ GASスクリプトのオーナーアカウントと一致させてください</div>'
+    + '</div>'
+    + '<div style="font-size:12px;color:#374151;margin-bottom:4px;font-weight:600;">📋 カレンダー名（Googleカレンダーの表示名と一致）</div>'
     + '<div style="display:grid;grid-template-columns:auto 1fr;gap:6px 8px;align-items:center;margin-bottom:12px;">'
     +   '<span style="font-size:12px;color:#374151;">スタッフ予約</span>'
     +   '<input class="admin-inp" id="cal-staff" value="' + esc(calCfg.staff) + '" placeholder="リピッテ予約" style="padding:6px 10px;font-size:12px;" />'
@@ -3228,8 +3235,10 @@ function adminSaveCalConfig() {
     self:    (document.getElementById("cal-self")||{}).value || "セルフトレーニング",
   };
   saveData("sakura_cal_config", cfg);
+  var account = (document.getElementById("cal-account")||{}).value || "";
+  saveData("sakura_cal_account", account);
   var st = document.getElementById("adm-cal-status");
-  if (st) { st.style.color="#059669"; st.textContent = "✅ 設定を保存しました"; }
+  if (st) { st.style.color="#059669"; st.textContent = "✅ 設定を保存しました" + (account ? "（アカウント: " + account + "）" : ""); }
 }
 
 // [変更] カレンダー同期実行
@@ -3408,18 +3417,24 @@ function adminShowReservations() {
     }
     _adminReservations = res.reservations;
     var days = ["日","月","火","水","木","金","土"];
-    var html = '<div class="admin-result"><div style="font-size:12px;color:#1e40af;font-weight:700;margin-bottom:8px;">今後の予約（' + res.reservations.length + '件）</div>';
+    var html = '<div class="admin-result">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">'
+      + '<div style="font-size:12px;color:#1e40af;font-weight:700;">今後の予約（' + res.reservations.length + '件）</div>'
+      + '<label style="font-size:11px;color:#6b7280;cursor:pointer;"><input type="checkbox" id="adm-chk-all" onchange="adminToggleAllChk(this.checked)" style="margin-right:4px;">全選択</label>'
+      + '</div>';
     res.reservations.forEach(function(r, i){
       var dt = new Date(r.date + "T00:00:00");
       var dlabel = (dt.getMonth()+1)+"月"+dt.getDate()+"日（"+days[dt.getDay()]+"） "+r.time;
       html += '<div class="arow" style="align-items:center;">'
-        + '<span class="albl">' + esc(dlabel) + '</span>'
-        + '<span style="display:flex;align-items:center;gap:6px;">'
-        + esc(r.menu)
-        + '<button class="admin-btn red" style="padding:3px 8px;font-size:11px;" onclick="adminCancelOne('+i+')">取消</button>'
-        + '</span></div>';
+        + '<label style="display:flex;align-items:center;gap:6px;flex:1;cursor:pointer;">'
+        + '<input type="checkbox" class="adm-rv-chk" data-idx="'+i+'" style="width:16px;height:16px;accent-color:#ef4444;">'
+        + '<span class="albl" style="margin:0;">' + esc(dlabel) + ' ' + esc(r.menu) + '</span>'
+        + '</label>'
+        + '<button class="admin-btn red" style="padding:3px 8px;font-size:11px;flex-shrink:0;" onclick="adminCancelOne('+i+')">取消</button>'
+        + '</div>';
     });
-    html += '</div>';
+    html += '<button class="admin-btn red" style="width:100%;padding:10px;margin-top:10px;font-size:13px;" onclick="adminCancelSelected()">🗑️ 選択した予約を一括取消</button>'
+      + '</div>';
     area.innerHTML = html;
   })
   .catch(function(){
@@ -3443,6 +3458,34 @@ function adminCancelOne(idx) {
     } else {
       alert("キャンセル失敗: " + (d.message||"エラー"));
     }
+  });
+}
+
+function adminToggleAllChk(checked) {
+  document.querySelectorAll(".adm-rv-chk").forEach(function(el){ el.checked = checked; });
+}
+
+function adminCancelSelected() {
+  var checked = Array.from(document.querySelectorAll(".adm-rv-chk:checked"));
+  if (checked.length === 0) { alert("取消する予約を選択してください"); return; }
+  var idxs = checked.map(function(el){ return parseInt(el.getAttribute("data-idx")); }).sort(function(a,b){return b-a;});
+  var labels = idxs.map(function(i){ var r=_adminReservations[i]; return r.date+" "+r.time+"「"+r.menu+"」"; });
+  if (!confirm("以下の予約を取消しますか？\n\n" + labels.join("\n"))) return;
+  var area = document.getElementById("adm-action-area");
+  if (area) area.innerHTML = '<p style="font-size:13px;color:#6b7280;padding:8px 0;">取消処理中...</p>';
+  var promises = idxs.map(function(i){
+    var r = _adminReservations[i];
+    return fetch(GAS_URL, { method:"POST", body:JSON.stringify({
+      token:AUTH_TOKEN, action:"cancelReservation",
+      numericId:r.numericId||"", eventId:r.eventId||"", date:r.date, time:r.time, calendar:r.calendar||"リピッテ予約"
+    })}).then(function(res){ return res.json(); });
+  });
+  Promise.all(promises).then(function(results){
+    var failed = results.filter(function(d){ return !d.success; });
+    idxs.forEach(function(i){ _adminReservations[i] = null; });
+    _adminReservations = _adminReservations.filter(function(r){ return r !== null; });
+    if (failed.length > 0) { alert(failed.length + "件の取消に失敗しました"); }
+    adminShowReservations();
   });
 }
 

@@ -2551,7 +2551,7 @@ function handleConsultInput(text) {
             window.open(_surveyUrl, "_blank");
             addBot("Googleフォームを開きました 🌸\nご回答よろしくお願いします。");
           } else {
-            startSurvey();
+            wait(function(){ startSurvey(); }, 400);
           }
         });
       }, 400);
@@ -2621,7 +2621,7 @@ function handleFreeInput(text) {
             window.open(_surveyUrl2, "_blank");
             addBot("Googleフォームを開きました 🌸\nご回答よろしくお願いします。");
           } else {
-            startSurvey();
+            wait(function(){ startSurvey(); }, 400);
           }
         });
       }, 400);

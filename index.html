@@ -289,9 +289,23 @@ function row(l,v){ return '<div class="row"><span class="lbl">'+l+'</span><span>
 function saveData(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){} }
 function loadData(k){ try{var d=localStorage.getItem(k);return d?JSON.parse(d):null;}catch(e){return null;} }
 
-var _vd = new Date();
-var APP_VERSION = "v1.1  2026-03-11 " + String(_vd.getHours()).padStart(2,"0") + ":" + String(_vd.getMinutes()).padStart(2,"0");
-document.getElementById("ver-label").textContent = APP_VERSION;
+// HTML最終更新日時（デプロイ時に自動更新）
+var HTML_UPDATED = "2026/03/12 13:00";
+document.getElementById("ver-label").textContent = "HTML更新: " + HTML_UPDATED;
+// GAS最終更新日時を非同期で取得して表示
+fetch(GAS_URL + "?action=memoStatus")
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    if(d && d.updatedAt){
+      var gd = new Date(parseInt(d.updatedAt));
+      var gs = gd.getFullYear()+"/"
+        +String(gd.getMonth()+1).padStart(2,"0")+"/"
+        +String(gd.getDate()).padStart(2,"0")+" "
+        +String(gd.getHours()).padStart(2,"0")+":"
+        +String(gd.getMinutes()).padStart(2,"0");
+      document.getElementById("ver-label").textContent = "HTML: "+HTML_UPDATED+" ／ GAS: "+gs;
+    }
+  }).catch(function(){});
 
 var GAS_URL    = "https://script.google.com/macros/s/AKfycbyfHn9LJJMs7KQNi0rxTVUTwvOlma_VwM8sXdabL693gx9h1xguR-vibe3D8MbZseR6/exec";
 var AUTH_TOKEN = "Sk@2026_aRiNo#dAi";

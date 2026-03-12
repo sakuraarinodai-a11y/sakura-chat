@@ -2535,18 +2535,8 @@ function execCancel(r, callback) {
 
 // [変更] その他・相談モード専用のAI会話関数（unknownでも会話継続）
 function handleConsultInput(text) {
-  // [変更] キーワード事前検知：アンケート・メニュー・料金
+  // [変更] アンケートは常にチャット内で入力（外部リンクではなくstartSurvey）
   if (/アンケート|口コミ|感想|評価/.test(text)) {
-    var _surveyUrl = loadData("sakura_survey_url");
-    if (_surveyUrl) {
-      step=""; addBot("アンケートはこちらからお答えください 🌸");
-      wait(function(){
-        var wrap = document.createElement("div"); wrap.className="cardwrap";
-        wrap.innerHTML = '<div class="card" style="padding:12px;"><a href="' + esc(_surveyUrl) + '" target="_blank" style="display:block;background:var(--pink);color:white;text-align:center;padding:12px;border-radius:10px;text-decoration:none;font-weight:700;">📝 アンケートに答える</a></div>';
-        document.getElementById("msgs").appendChild(wrap); scrollB();
-        wait(function(){ showChoices([{label:"🔄 最初に戻る",val:"back"}], function(){ reserv={}; step=""; wait(function(){ askPurpose(); },400); }); }, 400);
-      }, 400); return;
-    }
     step=""; addBot("アンケートを開始します 🌸");
     wait(function(){ startSurvey(); }, 400); return;
   }

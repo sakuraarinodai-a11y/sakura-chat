@@ -291,7 +291,7 @@ function saveData(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){
 function loadData(k){ try{var d=localStorage.getItem(k);return d?JSON.parse(d):null;}catch(e){return null;} }
 
 // HTML最終更新日時（デプロイ時に自動更新）
-var HTML_UPDATED = "2026/03/13 15:50";
+var HTML_UPDATED = "2026/03/13 16:00";
 document.getElementById("ver-label").textContent = "HTML更新: " + HTML_UPDATED;
 // GAS最終更新日時を非同期で取得して表示
 fetch(GAS_URL + "?action=memoStatus")
@@ -2801,26 +2801,37 @@ function showRegSummary() {
 // ============================================================
 // 往診
 // ============================================================
-function _showMapsLink(url, address, distanceKm) {
-  var label = distanceKm ? "Googleマップでルート確認（約" + distanceKm + "km）" : "Googleマップでルートを確認する";
-  wait(function() {
-    var wrap = document.createElement("div");
-    wrap.className = "cardwrap";
-    wrap.innerHTML = '<div class="card" style="padding:12px;">'
-      + '<p style="font-size:12px;color:#6b7280;margin-bottom:8px;">📍 入力住所：' + esc(address) + '</p>'
-      + '<a href="' + url + '" target="_blank" class="btnok" style="text-decoration:none;display:block;text-align:center;">🗺️ ' + esc(label) + '</a>'
-      + '</div>';
-    document.getElementById("msgs").appendChild(wrap);
-    scrollB();
-  }, 400);
+function _askVisitAreaFee() {
+  addBot("お住まいのエリアを選んでください 📍");
+  showChoices([
+    { label:"神戸市北区内（～5km）",          val:"5" },
+    { label:"神戸市（他の区）・三田市（～10km）", val:"10" },
+    { label:"その他の地域（10km以上）",         val:"15" },
+  ], function(v) {
+    var distanceKm = parseFloat(v);
+    var fee = distanceKm >= 10 ? Math.ceil((distanceKm * 2) / 3) * 1000 : 0;
+    if (fee > 0) {
+      addBot("往復交通費として " + fee.toLocaleString() + "円が別途発生します。\n（正確な金額は当日スタッフよりご案内します）");
+    } else {
+      addBot("交通費は無料です 🌸");
+    }
+    reserv.visitFee = fee; reserv.menu = "往診";
+    wait(function() {
+      showChoices([
+        { label:"この条件で予約する", val:"ok" },
+        { label:"キャンセルする",     val:"cancel" },
+      ], function(v2) {
+        if (v2 === "ok") { wait(function(){ askWho(); }, 400); }
+        else { wait(function(){ addBot("またのご利用をお待ちしております 🌸"); }, 400); }
+      });
+    }, 600);
+  });
 }
 
 function onVisitAddress(address) {
   reserv.visitAddress = address;
   patient.lastAddress = address;
   saveData("sakura_patient", patient);
-  var clinic = "兵庫県神戸市北区有野台2-1-7-9";
-  var mapsUrl = "https://www.google.com/maps/dir/?api=1&origin=" + encodeURIComponent(address) + "&destination=" + encodeURIComponent(clinic);
   addBot("距離を確認しています...");
   showTyping();
   fetch(GAS_URL, { method:"POST", body:JSON.stringify({ token:AUTH_TOKEN, action:"calcDistance", address:address }) })
@@ -2830,48 +2841,31 @@ function onVisitAddress(address) {
     document.getElementById("msgs").lastElementChild.remove();
     if (data.success) {
       var fee = data.fee;
-      if (fee > 0) { addBot("当院から約"+data.distanceKm+"kmですね。\n往復交通費として "+fee.toLocaleString()+"円が別途発生します。"); }
-      else { addBot("当院から約"+data.distanceKm+"kmですね。\n交通費は無料です 🌸"); }
-      _showMapsLink(mapsUrl, address, data.distanceKm);
+      if (fee > 0) {
+        addBot("当院から約" + data.distanceKm + "kmですね。\n往復交通費として " + fee.toLocaleString() + "円が別途発生します。");
+      } else {
+        addBot("当院から約" + data.distanceKm + "kmですね。\n交通費は無料です 🌸");
+      }
       reserv.visitFee = fee; reserv.menu = "往診";
       wait(function() {
         showChoices([
           { label:"この条件で予約する", val:"ok" },
-          { label:"キャンセルする", val:"cancel" },
+          { label:"キャンセルする",     val:"cancel" },
         ], function(v) {
-          if (v==="ok") { wait(function(){ askWho(); }, 400); }
+          if (v === "ok") { wait(function(){ askWho(); }, 400); }
           else { wait(function(){ addBot("またのご利用をお待ちしております 🌸"); }, 400); }
         });
-      }, 900);
+      }, 600);
     } else {
-      addBot("ご住所を確認しました 📝\nGoogleマップでルートと距離をご確認ください。");
-      _showMapsLink(mapsUrl, address, null);
-      reserv.visitFee = 0; reserv.menu = "往診";
-      wait(function() {
-        showChoices([
-          { label:"この住所で予約する", val:"ok" },
-          { label:"キャンセルする", val:"cancel" },
-        ], function(v) {
-          if (v==="ok") { wait(function(){ askWho(); }, 400); }
-          else { wait(function(){ addBot("またのご利用をお待ちしております 🌸"); }, 400); }
-        });
-      }, 900);
+      addBot("住所から距離の自動計算ができませんでした。\nお住まいのエリアから交通費をご案内します。");
+      wait(function(){ _askVisitAreaFee(); }, 400);
     }
   })
   .catch(function() {
     removeTyping();
-    addBot("距離の自動計算ができませんでした。\nGoogleマップでルートをご確認ください。");
-    _showMapsLink(mapsUrl, address, null);
-    reserv.visitFee = 0; reserv.menu = "往診";
-    wait(function() {
-      showChoices([
-        { label:"この住所で予約する", val:"ok" },
-        { label:"キャンセルする", val:"cancel" },
-      ], function(v) {
-        if (v==="ok") { wait(function(){ askWho(); }, 400); }
-        else { wait(function(){ addBot("またのご利用をお待ちしております 🌸"); }, 400); }
-      });
-    }, 900);
+    document.getElementById("msgs").lastElementChild.remove();
+    addBot("距離の確認ができませんでした。\nお住まいのエリアから交通費をご案内します。");
+    wait(function(){ _askVisitAreaFee(); }, 400);
   });
 }
 

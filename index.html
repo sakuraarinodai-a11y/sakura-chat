@@ -467,12 +467,34 @@ function startSurvey() {
   wait(function(){ askFormQ(0); }, 800);
 }
 
+function _addFormBackBtn(idx) {
+  if (idx <= 0) return;
+  var wrap = document.createElement("div");
+  wrap.className = "cardwrap"; wrap.id = "fback-" + idx;
+  var btn = document.createElement("button");
+  btn.className = "btnng";
+  btn.style.cssText = "font-size:12px;padding:6px 14px;";
+  btn.textContent = "← 前の質問に戻る";
+  btn.onclick = function() {
+    // 選択肢カード・スキップボタン・戻るボタンを全て除去
+    ["fback-"+idx, "fskip-"+idx].forEach(function(id){
+      var el = document.getElementById(id); if(el) el.remove();
+    });
+    document.querySelectorAll(".cardwrap").forEach(function(el){ el.remove(); });
+    step = "";
+    wait(function(){ askFormQ(idx - 1); }, 200);
+  };
+  wrap.appendChild(btn);
+  document.getElementById("msgs").appendChild(wrap); scrollB();
+}
+
 function askFormQ(idx) {
   if (idx >= FORM_QS.length) { _submitGoogleForm(); return; }
   _formIdx = idx;
   var q = FORM_QS[idx];
   addBot("（" + (idx + 1) + " / " + FORM_QS.length + "）\n" + q.q);
   wait(function(){
+    _addFormBackBtn(idx);
     if (q.type === "radio") {
       var choices = q.opts.map(function(o){ return {label:o, val:o}; });
       if (q.skip) choices.push({label:"スキップ →", val:"__skip__"});
@@ -1505,8 +1527,19 @@ function loadSlotsMulti(date) {
   .then(function(data) {
     removeTyping();
     if (!data.success || !data.slots || data.slots.length === 0) {
-      addBot("申し訳ありません。その日は複数メニューを組み合わせられる空きがありませんでした 😢");
-      wait(function(){ askDate(); }, 600); return;
+      addBot("その日は複数メニューを組み合わせられる空きが確認できませんでした 🌸\nご希望の日時をメールにてお知らせください。確認後にご連絡いたします。\n\n📧 sakura.arinodai@gmail.com");
+      wait(function(){
+        showChoices([
+          { label:"別の日で探す",            val:"other_day"  },
+          { label:"メール本文をコピー 📋",   val:"copy_email" },
+        ], function(v){
+          if (v === "copy_email") {
+            var body = "件名：予約希望\nお名前：\nご希望日時（第1希望）：\nご希望日時（第2希望）：\nメニュー：" + (reserv.menu||"") + (reserv.extraMenus ? "＋" + (reserv.extraMenus||[]).join("・") : "");
+            try { navigator.clipboard.writeText(body); addBot("コピーしました！メールに貼り付けてお送りください 🌸"); }
+            catch(err) { addBot("以下をコピーしてお送りください：\n" + body); }
+          } else { wait(function(){ askDate(); }, 400); }
+        });
+      }, 600); return;
     }
 
     var allSlots = data.slots;
@@ -1809,8 +1842,25 @@ function loadSlots(date, zone) {
   .then(function(data) {
     removeTyping();
     if (!data.success || !data.slots || data.slots.length===0) {
-      addBot("申し訳ありません。その日は空きがありませんでした 😢");
-      wait(function(){ askDate(); }, 600); return;
+      addBot("その日の空きが確認できませんでした 🌸\nご来院を希望される場合は、ご希望の日時をメールにてお知らせください。確認後にご連絡いたします。\n\n📧 sakura.arinodai@gmail.com\n件名：予約希望｜お名前・ご希望日時をご記入ください");
+      wait(function(){
+        showChoices([
+          { label:"別の日で探す",            val:"other_day"   },
+          { label:"メール本文をコピー 📋",   val:"copy_email"  },
+        ], function(v){
+          if (v === "copy_email") {
+            var body = "件名：予約希望\nお名前：\nご希望日時（第1希望）：\nご希望日時（第2希望）：\nメニュー：" + (reserv.menu||"");
+            try {
+              navigator.clipboard.writeText(body);
+              addBot("コピーしました！ そのままメールに貼り付けてお送りください 🌸");
+            } catch(err) {
+              addBot("以下をコピーしてお送りください：\n" + body);
+            }
+          } else {
+            wait(function(){ askDate(); }, 400);
+          }
+        });
+      }, 600); return;
     }
     var allSlots = data.slots;
     var filtered = allSlots.filter(function(s){
@@ -3131,11 +3181,13 @@ function handleConsultInput(text) {
         step="other_free"; enableInput();
         wait(function(){
           showChoices([
-            { label:"📅 予約に進む", val:"reserve" },
-            { label:"🔄 最初に戻る", val:"restart" },
+            { label:"📅 予約に進む",            val:"reserve" },
+            { label:"📩 スタッフに相談する",    val:"contact" },
+            { label:"🔄 最初に戻る",            val:"restart" },
           ], function(v){
             step="";
-            if (v==="reserve") { reserv={}; wait(function(){ onPurpose("reserve"); }, 400); }
+            if      (v==="reserve") { reserv={}; wait(function(){ onPurpose("reserve"); }, 400); }
+            else if (v==="contact") { wait(function(){ showContactRequest(text); }, 400); }
             else { reserv={}; wait(function(){ askPurpose(); }, 400); }
           });
         }, 400);
@@ -3550,6 +3602,54 @@ function enableInput() {
 function disableInput() {
   var i=document.getElementById("inp"),b=document.getElementById("sbtn");
   i.disabled=true; b.disabled=true; i.placeholder="上の選択肢からお選びください";
+}
+
+// ============================================================
+// スタッフへの連絡要請ウィンドウ
+// ============================================================
+function showContactRequest(reason) {
+  disableInput();
+  addBot("スタッフへご連絡が必要な内容ですね 🌸\n以下のフォームからお問い合わせ内容をお送りください。確認後に折り返しご連絡いたします。");
+  wait(function(){
+    var wrap = document.createElement("div"); wrap.className = "cardwrap";
+    var card = document.createElement("div"); card.className = "card"; card.style.minWidth = "260px";
+    card.innerHTML = '<h3 style="margin-bottom:10px;">📩 スタッフへ連絡</h3>';
+
+    var textarea = document.createElement("textarea");
+    textarea.placeholder = reason || "ご相談内容をご記入ください";
+    textarea.style.cssText = "width:100%;height:80px;border:1.5px solid #fce4ec;border-radius:8px;padding:8px;font-size:13px;font-family:inherit;resize:none;box-sizing:border-box;";
+
+    var sendBtn = document.createElement("button");
+    sendBtn.className = "btnok"; sendBtn.style.marginTop = "10px";
+    sendBtn.textContent = "送信する";
+    sendBtn.onclick = function() {
+      var msg = textarea.value.trim();
+      if (!msg) { alert("内容を入力してください"); return; }
+      sendBtn.disabled = true; sendBtn.textContent = "送信中...";
+      fetch(GAS_URL, { method:"POST", body: JSON.stringify({
+        token: AUTH_TOKEN, action: "notifyStaff",
+        type: "contact_request",
+        name: patient.name || "患者",
+        tel:  patient.tel  || "",
+        message: msg,
+      })})
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        wrap.remove();
+        addBot("送信しました 🌸\nスタッフより折り返しご連絡いたします。少々お待ちください。");
+        wait(function(){ showChoices([{label:"最初に戻る",val:"restart"}], function(){ location.reload(); }); }, 600);
+      })
+      .catch(function(){
+        wrap.remove();
+        addBot("送信できませんでした。お電話（078-984-5788）にてご連絡ください。");
+      });
+    };
+
+    card.appendChild(textarea);
+    card.appendChild(sendBtn);
+    wrap.appendChild(card);
+    document.getElementById("msgs").appendChild(wrap); scrollB();
+  }, 600);
 }
 
 // ============================================================

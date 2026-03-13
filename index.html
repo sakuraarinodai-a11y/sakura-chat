@@ -291,7 +291,7 @@ function saveData(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){
 function loadData(k){ try{var d=localStorage.getItem(k);return d?JSON.parse(d):null;}catch(e){return null;} }
 
 // HTML最終更新日時（デプロイ時に自動更新）
-var HTML_UPDATED = "2026/03/13 16:45";
+var HTML_UPDATED = "2026/03/13 17:35";
 document.getElementById("ver-label").textContent = "HTML更新: " + HTML_UPDATED;
 // GAS最終更新日時を非同期で取得して表示
 fetch(GAS_URL + "?action=memoStatus")
@@ -815,8 +815,9 @@ function onPurpose(val) {
     wait(function(){ showProfileEdit(); }, 400);
   } else if (val === "visit") {
     wait(function() {
+      var _clinicAddr = "兵庫県神戸市北区有野台2-1-7-9";
       if (patient.lastAddress) {
-        addBot("往診をご希望なんですね 🌸\n以前ご登録の住所はこちらです：\n📍 " + patient.lastAddress);
+        addBot("往診をご希望なんですね 🌸\n\n🏥 当院：" + _clinicAddr + "\n\n以前ご登録の住所はこちらです：\n📍 " + patient.lastAddress);
         showChoices([
           { label:"この住所でOK", val:"use_saved" },
           { label:"住所を変更する", val:"change_address" },
@@ -829,7 +830,7 @@ function onPurpose(val) {
           }
         });
       } else {
-        addBot("往診をご希望なんですね 🌸\nご自宅の住所を教えていただけますか？");
+        addBot("往診をご希望なんですね 🌸\n\n🏥 当院：" + _clinicAddr + "\n\nご自宅の住所を教えていただけますか？\n（当院からの距離を確認します）");
         step = "visit_address"; enableInput();
       }
     }, 400);

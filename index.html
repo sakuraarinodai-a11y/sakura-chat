@@ -291,7 +291,7 @@ function saveData(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){
 function loadData(k){ try{var d=localStorage.getItem(k);return d?JSON.parse(d):null;}catch(e){return null;} }
 
 // HTML最終更新日時（デプロイ時に自動更新）
-var HTML_UPDATED = "2026/03/13 15:35";
+var HTML_UPDATED = "2026/03/13 15:50";
 document.getElementById("ver-label").textContent = "HTML更新: " + HTML_UPDATED;
 // GAS最終更新日時を非同期で取得して表示
 fetch(GAS_URL + "?action=memoStatus")
@@ -815,8 +815,23 @@ function onPurpose(val) {
     wait(function(){ showProfileEdit(); }, 400);
   } else if (val === "visit") {
     wait(function() {
-      addBot("往診をご希望なんですね 🌸\nご自宅の住所を教えていただけますか？");
-      step = "visit_address"; enableInput();
+      if (patient.lastAddress) {
+        addBot("往診をご希望なんですね 🌸\n以前ご登録の住所はこちらです：\n📍 " + patient.lastAddress);
+        showChoices([
+          { label:"この住所でOK", val:"use_saved" },
+          { label:"住所を変更する", val:"change_address" },
+        ], function(v2) {
+          if (v2 === "use_saved") {
+            wait(function(){ onVisitAddress(patient.lastAddress); }, 400);
+          } else {
+            addBot("新しいご住所を入力してください。");
+            step = "visit_address"; enableInput();
+          }
+        });
+      } else {
+        addBot("往診をご希望なんですね 🌸\nご自宅の住所を教えていただけますか？");
+        step = "visit_address"; enableInput();
+      }
     }, 400);
   } else if (val === "subsinfo") {
     wait(function(){ showSubsInfo(); }, 400);

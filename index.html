@@ -291,7 +291,7 @@ function saveData(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){
 function loadData(k){ try{var d=localStorage.getItem(k);return d?JSON.parse(d):null;}catch(e){return null;} }
 
 // HTML最終更新日時（デプロイ時に自動更新）
-var HTML_UPDATED = "2026/03/13 13:32";
+var HTML_UPDATED = "2026/03/13 14:05";
 document.getElementById("ver-label").textContent = "HTML更新: " + HTML_UPDATED;
 // GAS最終更新日時を非同期で取得して表示
 fetch(GAS_URL + "?action=memoStatus")
@@ -596,6 +596,21 @@ function _submitGoogleForm() {
       if (!surveyAnswers.impression && formAnswers[1189402410]) {
         surveyAnswers.impression = Array.isArray(formAnswers[1189402410]) ? formAnswers[1189402410][0] : formAnswers[1189402410];
       }
+      if (!surveyAnswers.immediateChange && formAnswers[627458252]) {
+        surveyAnswers.immediateChange = Array.isArray(formAnswers[627458252]) ? formAnswers[627458252].join("・") : formAnswers[627458252];
+      }
+      if (!surveyAnswers.recovery && formAnswers[2066875637]) {
+        surveyAnswers.recovery = formAnswers[2066875637];
+      }
+      if (!surveyAnswers.recommend && formAnswers[775950205]) {
+        surveyAnswers.recommend = Array.isArray(formAnswers[775950205]) ? formAnswers[775950205].join("・") : formAnswers[775950205];
+      }
+      if (!surveyAnswers.diffFromOther && formAnswers[1639671397]) {
+        surveyAnswers.diffFromOther = Array.isArray(formAnswers[1639671397]) ? formAnswers[1639671397].join("・") : formAnswers[1639671397];
+      }
+      if (!surveyAnswers.freeComment && formAnswers[1521887609]) {
+        surveyAnswers.freeComment = formAnswers[1521887609];
+      }
       wait(function(){ finishSurvey(); }, 600);
     } else {
       wait(function(){ askPurpose(); }, 600);
@@ -626,46 +641,46 @@ function finishSurvey() {
       // [変更] AI失敗時もフォールバックテンプレートでシームレスにGoogle投稿へ
       var reviewText = (d.success && d.review) ? d.review : _buildFallbackReview();
       var msgText = (d.success && d.review)
-        ? "口コミ文をご用意しました 🌸\nそのままご利用いただいても、変更していただいても構いません。"
-        : "口コミ文のサンプルをご用意しました 🌸\n内容を確認してそのままご利用ください。";
+        ? "口コミ文をご用意しました 🌸\n内容を自由に編集していただけます。"
+        : "口コミ文のサンプルをご用意しました 🌸\n内容を編集してご利用ください。";
       addBot(msgText);
       wait(function() {
         var wrap = document.createElement("div");
         wrap.className = "cardwrap";
         wrap.innerHTML = '<div class="card">'
-          + '<h3>📝 口コミサンプル</h3>'
-          + '<p id="review-text" style="font-size:13px;line-height:1.8;color:#374151;">' + esc(reviewText) + '</p>'
+          + '<h3>📝 口コミ文（編集可）</h3>'
+          + '<textarea id="review-text" oninput="updateReviewCount()" style="width:100%;min-height:120px;font-size:13px;line-height:1.8;color:#374151;border:1px solid #e5e7eb;border-radius:8px;padding:8px;resize:vertical;box-sizing:border-box;">' + esc(reviewText) + '</textarea>'
+          + '<p id="review-char-count" style="font-size:11px;color:#6b7280;text-align:right;margin:4px 0 8px;"></p>'
           + '<div class="btnrow">'
-          + '<a href="https://g.page/r/Cc0rd9i5x96tEAE/review" target="_blank" class="btnok" style="text-decoration:none;" onclick="copyReviewText()">'
-            + 'コピーしてGoogleに投稿する 👉</a>'
+          + '<button class="btnok" onclick="postGoogleReview()">コピーしてGoogleに投稿 👉</button>'
           + '<button class="btnng" onclick="skipReview()">またの機会に</button>'
           + '</div>'
-          + '<p style="font-size:11px;color:#9ca3af;margin-top:8px;">※ 投稿ページが開いたらそのまま貼り付けてください</p>'
           + '</div>';
         document.getElementById("msgs").appendChild(wrap);
         scrollB();
+        updateReviewCount();
       }, 400);
     })
     .catch(function() {
       var loadingMsg = document.getElementById("review-generating-msg");
       if (loadingMsg) loadingMsg.remove();
       // [変更] 通信エラー時もフォールバックで継続
-      addBot("口コミ文のサンプルをご用意しました 🌸");
+      addBot("口コミ文のサンプルをご用意しました 🌸\n内容を編集してご利用ください。");
       wait(function() {
         var wrap = document.createElement("div");
         wrap.className = "cardwrap";
         wrap.innerHTML = '<div class="card">'
-          + '<h3>📝 口コミサンプル</h3>'
-          + '<p id="review-text" style="font-size:13px;line-height:1.8;color:#374151;">' + esc(_buildFallbackReview()) + '</p>'
+          + '<h3>📝 口コミ文（編集可）</h3>'
+          + '<textarea id="review-text" oninput="updateReviewCount()" style="width:100%;min-height:120px;font-size:13px;line-height:1.8;color:#374151;border:1px solid #e5e7eb;border-radius:8px;padding:8px;resize:vertical;box-sizing:border-box;">' + esc(_buildFallbackReview()) + '</textarea>'
+          + '<p id="review-char-count" style="font-size:11px;color:#6b7280;text-align:right;margin:4px 0 8px;"></p>'
           + '<div class="btnrow">'
-          + '<a href="https://g.page/r/Cc0rd9i5x96tEAE/review" target="_blank" class="btnok" style="text-decoration:none;" onclick="copyReviewText()">'
-            + 'コピーしてGoogleに投稿する 👉</a>'
+          + '<button class="btnok" onclick="postGoogleReview()">コピーしてGoogleに投稿 👉</button>'
           + '<button class="btnng" onclick="skipReview()">またの機会に</button>'
           + '</div>'
-          + '<p style="font-size:11px;color:#9ca3af;margin-top:8px;">※ 投稿ページが開いたらそのまま貼り付けてください</p>'
           + '</div>';
         document.getElementById("msgs").appendChild(wrap);
         scrollB();
+        updateReviewCount();
       }, 400);
     });
   } else {
@@ -689,27 +704,55 @@ function _buildFallbackReview() {
   return lines.join("\n");
 }
 
+function updateReviewCount() {
+  var ta = document.getElementById("review-text");
+  var el = document.getElementById("review-char-count");
+  if (!ta || !el) return;
+  var n = ta.value.length;
+  el.textContent = n + "文字";
+  el.style.color = (n >= 250 && n <= 350) ? "#10b981" : "#f59e0b";
+}
+
+function postGoogleReview() {
+  var ta = document.getElementById("review-text");
+  var text = ta ? ta.value.trim() : "";
+  var copyDone = function() {
+    var toast = document.getElementById("copy-toast");
+    if (toast) { toast.classList.add("show"); setTimeout(function(){ toast.classList.remove("show"); }, 3000); }
+    window.open("https://g.page/r/Cc0rd9i5x96tEAE/review", "_blank");
+    addBot("✅ 口コミ文をコピーしました！\n\n開いたGoogleのページで「レビューを書く」欄に貼り付けてください（長押し→貼り付け）🌸\n\nご協力ありがとうございます！");
+    wait(function(){ askPurpose(); }, 800);
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(copyDone).catch(function(){
+      _fallbackCopy(text); copyDone();
+    });
+  } else {
+    _fallbackCopy(text); copyDone();
+  }
+}
+
+function _fallbackCopy(text) {
+  try {
+    var ta = document.createElement("textarea");
+    ta.value = text; ta.style.position = "fixed"; ta.style.top = "-9999px";
+    document.body.appendChild(ta); ta.select(); document.execCommand("copy");
+    document.body.removeChild(ta);
+  } catch(e) {}
+}
+
 function copyReviewText() {
-  var el = document.getElementById("review-text");
-  if (!el) return;
-  var text = el.textContent || el.innerText || "";
+  var ta = document.getElementById("review-text");
+  if (!ta) return;
+  var text = ta.value || "";
   var done = function() {
     var toast = document.getElementById("copy-toast");
-    if (toast) {
-      toast.classList.add("show");
-      setTimeout(function(){ toast.classList.remove("show"); }, 3000);
-    }
+    if (toast) { toast.classList.add("show"); setTimeout(function(){ toast.classList.remove("show"); }, 3000); }
   };
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(text).then(done).catch(done);
   } else {
-    try {
-      var ta = document.createElement("textarea");
-      ta.value = text; ta.style.position = "fixed"; ta.style.top = "-9999px";
-      document.body.appendChild(ta); ta.select(); document.execCommand("copy");
-      document.body.removeChild(ta);
-    } catch(e) {}
-    done();
+    _fallbackCopy(text); done();
   }
 }
 

@@ -291,7 +291,7 @@ function saveData(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){
 function loadData(k){ try{var d=localStorage.getItem(k);return d?JSON.parse(d):null;}catch(e){return null;} }
 
 // HTML最終更新日時（デプロイ時に自動更新）
-var HTML_UPDATED = "2026/03/13 16:20";
+var HTML_UPDATED = "2026/03/13 16:45";
 document.getElementById("ver-label").textContent = "HTML更新: " + HTML_UPDATED;
 // GAS最終更新日時を非同期で取得して表示
 fetch(GAS_URL + "?action=memoStatus")
@@ -2802,29 +2802,27 @@ function showRegSummary() {
 // 往診
 // ============================================================
 function _askVisitAreaFee() {
-  addBot("お住まいのエリアを選んでください 📍");
+  addBot("当院からのおおよその距離を教えてください 📍");
   showChoices([
-    { label:"神戸市北区内（～5km）",          val:"5" },
-    { label:"神戸市（他の区）・三田市（～10km）", val:"10" },
-    { label:"その他の地域（10km以上）",         val:"15" },
+    { label:"16km未満（保険適用あり）", val:"near" },
+    { label:"16km以上（全額自費）",     val:"far"  },
   ], function(v) {
-    var distanceKm = parseFloat(v);
-    var fee = distanceKm >= 10 ? Math.ceil((distanceKm * 2) / 3) * 1000 : 0;
-    if (fee > 0) {
-      addBot("往復交通費として " + fee.toLocaleString() + "円が別途発生します。\n（正確な金額は当日スタッフよりご案内します）");
+    if (v === "near") {
+      addBot("往療料の自己負担額（1回あたり）\n\n3割負担：690円\n2割負担：460円\n1割負担：230円\n\n保険証の負担割合でご確認ください 🌸");
+      reserv.visitFee = 0; reserv.menu = "往診";
+      wait(function() {
+        showChoices([
+          { label:"この条件で予約する", val:"ok" },
+          { label:"キャンセルする",     val:"cancel" },
+        ], function(v2) {
+          if (v2 === "ok") { wait(function(){ askWho(); }, 400); }
+          else { wait(function(){ addBot("またのご利用をお待ちしております 🌸"); }, 400); }
+        });
+      }, 600);
     } else {
-      addBot("交通費は無料です 🌸");
+      addBot("16km以上の場合、往療料は全額自費となります。\n費用の詳細はお電話（078-984-5788）にてご確認ください。");
+      wait(function(){ askPurpose(); }, 800);
     }
-    reserv.visitFee = fee; reserv.menu = "往診";
-    wait(function() {
-      showChoices([
-        { label:"この条件で予約する", val:"ok" },
-        { label:"キャンセルする",     val:"cancel" },
-      ], function(v2) {
-        if (v2 === "ok") { wait(function(){ askWho(); }, 400); }
-        else { wait(function(){ addBot("またのご利用をお待ちしております 🌸"); }, 400); }
-      });
-    }, 600);
   });
 }
 
@@ -2840,13 +2838,14 @@ function onVisitAddress(address) {
     removeTyping();
     document.getElementById("msgs").lastElementChild.remove();
     if (data.success) {
-      var fee = data.fee;
-      if (fee > 0) {
-        addBot("当院から約" + data.distanceKm + "kmですね。\n往復交通費として " + fee.toLocaleString() + "円が別途発生します。");
-      } else {
-        addBot("当院から約" + data.distanceKm + "kmですね。\n交通費は無料です 🌸");
+      var km = data.distanceKm;
+      if (km >= 16) {
+        addBot("当院から約" + km + "kmですね。\n16km以上のため往療料は全額自費となります。\n費用の詳細はお電話（078-984-5788）にてご確認ください。");
+        wait(function(){ askPurpose(); }, 800);
+        return;
       }
-      reserv.visitFee = fee; reserv.menu = "往診";
+      addBot("当院から約" + km + "kmですね 🌸\n\n往療料の自己負担額（1回あたり）\n3割負担：690円\n2割負担：460円\n1割負担：230円\n\n保険証の負担割合でご確認ください。");
+      reserv.visitFee = 0; reserv.menu = "往診";
       wait(function() {
         showChoices([
           { label:"この条件で予約する", val:"ok" },

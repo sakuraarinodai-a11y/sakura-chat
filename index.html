@@ -291,7 +291,7 @@ function saveData(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){
 function loadData(k){ try{var d=localStorage.getItem(k);return d?JSON.parse(d):null;}catch(e){return null;} }
 
 // HTML最終更新日時（デプロイ時に自動更新）
-var HTML_UPDATED = "2026/03/13 13:16";
+var HTML_UPDATED = "2026/03/13 13:32";
 document.getElementById("ver-label").textContent = "HTML更新: " + HTML_UPDATED;
 // GAS最終更新日時を非同期で取得して表示
 fetch(GAS_URL + "?action=memoStatus")
@@ -403,82 +403,209 @@ function askPrevFeedback() {
 }
 
 // ============================================================
-// アンケート（口コミ用）
+// アンケート（Googleフォーム連携版）
 // ============================================================
+var GOOGLE_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSfw2AtoKykEkQi5pJ4jEItOzElY1c6NuLm3pEq9TiiED7XBsA/formResponse";
+
+var FORM_QS = [
+  { id:244755329,  q:"当院はどちらでお知りになりましたか？", type:"radio",
+    opts:["インターネット検索","チラシ","紹介","近所"] },
+  { id:146541950,  q:"どのような状態で悩んでいましたか？（複数選択可）", type:"checkbox",
+    opts:["首の痛み","肩の痛み","背中の痛み","肘の痛み","手首の痛み","腰の痛み","股関節の痛み","膝の痛み","足首の痛み","その他"] },
+  { id:2027612607, q:"治療前の痛みを10段階で教えてください", type:"radio",
+    opts:["1・痛くない","2・なんとなく違和感","3・違和感がある","4・なんとなく痛い","5・少し痛む","6・痛い","7・強い痛み","8・かなり強い痛み","9・耐えられないほど痛い","10・想像できる最大の痛み"] },
+  { id:972464382,  q:"具体的にはどのような状態でしたか？", type:"text", skip:true },
+  { id:1907691510, q:"生活ではどのようなシーンで困りましたか？", type:"text", skip:true },
+  { id:306868867,  q:"どのくらいの期間悩んでいましたか？", type:"radio",
+    opts:["1週間前後","2週間前後","1ヶ月前後","数ヶ月前から","数年前から","3年以上前","その他"] },
+  { id:1585990785, q:"これまでに試したケアはありますか？（複数選択可）", type:"checkbox",
+    opts:["なにもしていない","セルフで体操をした","マッサージを受けた","他の治療院に通った","病院に行った","痛み止めの薬を飲んだ","湿布を貼っていた","その他"] },
+  { id:1260710908, q:"病院ではどうでしたか？（複数選択可・スキップ可）", type:"checkbox", skip:true,
+    opts:["レントゲンを撮った","MRIで検査した","エコー検査を受けた","原因がはっきりしなかった","湿布をもらった","痛み止めの注射を打った","神経ブロック注射をした","その他","効果が一時的で回復しなかった","良くならなかった","もっとリハビリ治療などをしてほしかった","良くならなかったらまた来て下さいと言われた"] },
+  { id:190421798,  q:"当てはまるものがあればチェックしてください（複数選択可・スキップ可）", type:"checkbox", skip:true,
+    opts:["体重を乗せると痛い","伸ばすと痛い","曲げると痛い","電気が走るような痛みがある","ズキズキと痛む","その他"] },
+  { id:1877826784, q:"当てはまるものがあればチェックしてください②（複数選択可・スキップ可）", type:"checkbox", skip:true,
+    opts:["座っているのが痛い","立ち上がりがつらい","前かがみが痛い","背が反らせれない","歩けない","しゃがめない","その他"] },
+  { id:2029264236, q:"想像していた施術は？（複数選択可）", type:"checkbox",
+    opts:["短時間（10～15分）の施術を想定","電気治療機器を使うと思っていた","マッサージ中心の手技を予想","ある程度の痛みは覚悟していた","スポーツ選手向けのイメージがあった","その他"] },
+  { id:1189402410, q:"実際の施術はどうでしたか？（複数選択可）", type:"checkbox",
+    opts:["検査がとても細かくて感じた","痛みの原因の説明が腑に落ちた","想像以上に丁寧な手技だった","専門的な技術が期待通りだった","時間をかけて向き合ってくれた","痛みへの配慮が予想以上にあった","施術はソフトで痛みもなく気持ちよかった","自分に合った強度だった","コミュニケーションがしっかり取れた","刺さない鍼治療も効果を感じた","施術時間が充実していた","今後の通院が楽しみになった","痛みなくリラックスできた","その他"] },
+  { id:627458252,  q:"すぐに感じた変化は？（複数選択可）", type:"checkbox",
+    opts:["押されて痛い箇所の痛みが消えた","緊張が徐々にほぐれていった","体のバランスが整うのを感じた","体が軽くなる感覚があった","痛みが消えてできなかった動きが出来た","施術の効果をその場で実感","その他"] },
+  { id:1639671397, q:"今まで受けた治療と何が違いましたか？（複数選択可・スキップ可）", type:"checkbox", skip:true,
+    opts:["個々の症状に合わせた対応が特徴的","設備の充実度が違う。治療と運動の両面から診てくれる","治療効果に即効性があった","丁寧な説明が他院より多かった","その他"] },
+  { id:775950205,  q:"どんな人に勧めたいですか？（複数選択可）", type:"checkbox",
+    opts:["デスクワークで肩こりが慢性化している人","スポーツ後のケアが必要なアスリート","産後の骨盤矯正を検討中のママ","慢性的な腰痛に悩む中高年層","姿勢の悪さが気になる学生","マッサージチェアでは物足りないと感じる人","交通事故後のむち打ち症の方","予防的に体のメンテナンスをしたい健康意識の高い人","他院で効果を実感できなかった人","ストレス性の頭痛を抱えるビジネスパーソン","その他"] },
+  { id:1315002972, q:"次回来るならどんな症状で相談したいですか？（複数選択可）", type:"checkbox",
+    opts:["デスクワーク起因の肩・首の重度こり","繰り返すぎっくり腰の根本改善","ランニング後の膝痛予防法","妊娠中/産後の骨盤バランス調整","四十肩/五十肩の可動域改善","スポーツパフォーマンス向上のための体幹調整","天候悪化時に増す関節痛対策","猫背矯正と呼吸の質向上","むち打ち症の長期的な後遺症ケア","特に無し","その他"] },
+  { id:975905508,  q:"治療後の痛みを10段階で教えてください", type:"radio",
+    opts:["1・痛くない","2・なんとなく違和感","3・違和感がある","4・なんとなく痛い","5・少し痛む","6・痛い","7・強い痛み","8・かなり強い痛み","9・耐えられないほど痛い","10・想像できる最大の痛み"] },
+  { id:2066875637, q:"施術後どのくらい良くなりましたか？", type:"radio",
+    opts:["99％","90％","80％","70％","60％","50％","40％","30％","20％","10％","改善したかわからない"] },
+  { id:672118245,  q:"お知り合いに体の不調で悩まれている方はいますか？", type:"radio", skip:true,
+    opts:["紹介したい人がいる","紹介する人がいない"] },
+  { id:1338288680, q:"ビフォーアフターの掲載にご協力ください。", type:"radio",
+    opts:["許可します","条件付きで許可します（顔出しNG）","許可しません","撮影していない","その他"] },
+  { id:1826588043, q:"施術の総合評価をお願いします。", type:"scale" },
+  { id:1521887609, q:"最後にご感想・ご要望があればお願いします。（スキップ可）", type:"text", skip:true },
+];
+
+var formAnswers = {};
+var _formIdx = 0;
+
 function startSurvey() {
-  addBot("ありがとうございます 🌸\nいくつかご質問させてください。");
-  wait(function() {
-    addBot("どのような症状でお悩みでしたか？");
-    wait(function() {
-      showChoices([
-        { label:"首・肩の痛み", val:"首・肩の痛み" },
-        { label:"腰の痛み", val:"腰の痛み" },
-        { label:"膝・足の痛み", val:"膝・足の痛み" },
-        { label:"背中の痛み", val:"背中の痛み" },
-        { label:"その他", val:"other" },
-      ], function(val) {
-        if (val === "other") { step = "survey_symptom"; enableInput(); return; }
-        surveyAnswers.symptom = val;
-        wait(function(){ surveyPain1(); }, 400);
+  formAnswers = {};
+  surveyAnswers = {};
+  _formIdx = 0;
+  // 名前・日付は自動入力
+  formAnswers[1087974089] = patient.name || ((patient.sei||"") + (patient.mei ? " "+patient.mei : "")) || "患者";
+  var today = new Date();
+  formAnswers["_dateYear"]  = String(today.getFullYear());
+  formAnswers["_dateMonth"] = String(today.getMonth() + 1);
+  formAnswers["_dateDay"]   = String(today.getDate());
+  addBot("ありがとうございます 🌸\nGoogleフォームと同じアンケートにご回答ください。\n回答は自動的にフォームへ送信されます。（全" + FORM_QS.length + "問・スキップ可な項目あり）");
+  wait(function(){ askFormQ(0); }, 800);
+}
+
+function askFormQ(idx) {
+  if (idx >= FORM_QS.length) { _submitGoogleForm(); return; }
+  _formIdx = idx;
+  var q = FORM_QS[idx];
+  addBot("（" + (idx + 1) + " / " + FORM_QS.length + "）\n" + q.q);
+  wait(function(){
+    if (q.type === "radio") {
+      var choices = q.opts.map(function(o){ return {label:o, val:o}; });
+      if (q.skip) choices.push({label:"スキップ →", val:"__skip__"});
+      showChoices(choices, function(v){
+        if (v !== "__skip__") {
+          formAnswers[q.id] = v;
+          if (q.id === 2027612607) surveyAnswers.painBefore = v.split("・")[0];
+          if (q.id === 975905508)  surveyAnswers.painAfter  = v.split("・")[0];
+        }
+        wait(function(){ askFormQ(idx + 1); }, 300);
       });
-    }, 600);
+    } else if (q.type === "scale") {
+      showChoices([
+        {label:"⭐ 1（よくなかった）",      val:"1"},
+        {label:"⭐⭐ 2",                    val:"2"},
+        {label:"⭐⭐⭐ 3（普通）",           val:"3"},
+        {label:"⭐⭐⭐⭐ 4",                val:"4"},
+        {label:"⭐⭐⭐⭐⭐ 5（最高でした）", val:"5"},
+      ], function(v){
+        formAnswers[q.id] = v;
+        surveyAnswers.stars = parseInt(v);
+        patient.lastSurveyDate = new Date().toISOString();
+        saveData("sakura_patient", patient);
+        wait(function(){ askFormQ(idx + 1); }, 300);
+      });
+    } else if (q.type === "checkbox") {
+      _showFormCheckbox(q, function(vals){
+        if (vals.length > 0) {
+          formAnswers[q.id] = vals;
+          if (q.id === 146541950) surveyAnswers.symptom = vals.join("・");
+          if (q.id === 1189402410) surveyAnswers.impression = vals[0] || "";
+        }
+        wait(function(){ askFormQ(idx + 1); }, 300);
+      });
+    } else if (q.type === "text") {
+      if (q.skip) {
+        var skipWrap = document.createElement("div");
+        skipWrap.className = "cardwrap"; skipWrap.id = "fskip-" + idx;
+        var skipBtn = document.createElement("button"); skipBtn.className = "btnng";
+        skipBtn.textContent = "スキップ →";
+        skipBtn.onclick = function(){
+          if (step !== "form_text") return;
+          step = ""; disableInput(); skipWrap.remove();
+          wait(function(){ askFormQ(idx + 1); }, 300);
+        };
+        skipWrap.appendChild(skipBtn);
+        document.getElementById("msgs").appendChild(skipWrap); scrollB();
+      }
+      step = "form_text"; enableInput();
+    }
   }, 600);
 }
 
-function surveyPain1() {
-  addBot("施術前の痛みを10段階で教えてください。");
-  wait(function() {
-    var items = [];
-    for (var i=10;i>=1;i--) items.push({label:i+"（"+painLabel(i)+"）",val:String(i)});
-    showChoices(items, function(val) {
-      surveyAnswers.painBefore = val;
-      wait(function(){ surveyPain2(); }, 400);
-    });
-  }, 600);
+function _showFormCheckbox(q, cb) {
+  var wrap = document.createElement("div"); wrap.className = "cardwrap";
+  var inner = document.createElement("div"); inner.className = "card"; inner.style.minWidth = "260px";
+  var group = document.createElement("div");
+  group.style.cssText = "display:flex;flex-direction:column;gap:6px;margin-bottom:12px;max-height:200px;overflow-y:auto;";
+  q.opts.forEach(function(o){
+    var lbl = document.createElement("label");
+    lbl.style.cssText = "display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;flex-shrink:0;";
+    var inp = document.createElement("input"); inp.type = "checkbox"; inp.value = o;
+    lbl.appendChild(inp); lbl.appendChild(document.createTextNode(o));
+    group.appendChild(lbl);
+  });
+  inner.appendChild(group);
+  var btnRow = document.createElement("div"); btnRow.className = "btnrow";
+  var okBtn = document.createElement("button"); okBtn.className = "btnok"; okBtn.textContent = "次へ";
+  okBtn.onclick = function(){
+    var checked = Array.from(inner.querySelectorAll("input:checked")).map(function(el){ return el.value; });
+    inner.querySelectorAll("input,button").forEach(function(el){ el.disabled = true; });
+    cb(checked);
+  };
+  btnRow.appendChild(okBtn);
+  if (q.skip) {
+    var skipBtn = document.createElement("button"); skipBtn.className = "btnng"; skipBtn.textContent = "スキップ";
+    skipBtn.onclick = function(){
+      inner.querySelectorAll("input,button").forEach(function(el){ el.disabled = true; });
+      cb([]);
+    };
+    btnRow.appendChild(skipBtn);
+  }
+  inner.appendChild(btnRow);
+  wrap.appendChild(inner);
+  document.getElementById("msgs").appendChild(wrap); scrollB();
 }
 
-function surveyPain2() {
-  addBot("施術後の痛みを10段階で教えてください。");
-  wait(function() {
-    var items = [];
-    for (var i=1;i<=10;i++) items.push({label:i+"（"+painLabel(i)+"）",val:String(i)});
-    showChoices(items, function(val) {
-      surveyAnswers.painAfter = val;
-      wait(function(){ surveyImpression(); }, 400);
-    });
-  }, 600);
-}
-
-function surveyImpression() {
-  addBot("施術の印象はいかがでしたか？");
-  wait(function() {
-    showChoices([
-      { label:"丁寧な説明で安心できた", val:"丁寧な説明で安心できた" },
-      { label:"痛みへの配慮が嬉しかった", val:"痛みへの配慮が嬉しかった" },
-      { label:"想像以上に効果を感じた", val:"想像以上に効果を感じた" },
-      { label:"他院と違うと感じた", val:"他院と違うと感じた" },
-    ], function(val) {
-      surveyAnswers.impression = val;
-      wait(function(){ surveyStars(); }, 400);
-    });
-  }, 600);
-}
-
-function surveyStars() {
-  addBot("総合評価を教えてください。");
-  wait(function() {
-    showChoices([
-      { label:"⭐⭐⭐⭐⭐ 最高でした", val:"5" },
-      { label:"⭐⭐⭐⭐ 良かったです", val:"4" },
-      { label:"⭐⭐⭐ 普通でした", val:"3" },
-      { label:"⭐⭐ 少し残念でした", val:"2" },
-    ], function(val) {
-      surveyAnswers.stars = parseInt(val);
-      patient.lastSurveyDate = new Date().toISOString();
-      saveData("sakura_patient", patient);
-      wait(function(){ finishSurvey(); }, 400);
-    });
-  }, 600);
+function _submitGoogleForm() {
+  addBot("回答を送信しています 🌸");
+  showTyping();
+  var params = [];
+  // 名前
+  params.push("entry.1087974089=" + encodeURIComponent(formAnswers[1087974089] || ""));
+  // 日付（Google Forms の date フィールド形式）
+  params.push("entry.1154315057_year="  + encodeURIComponent(formAnswers["_dateYear"]  || ""));
+  params.push("entry.1154315057_month=" + encodeURIComponent(formAnswers["_dateMonth"] || ""));
+  params.push("entry.1154315057_day="   + encodeURIComponent(formAnswers["_dateDay"]   || ""));
+  // 各質問の回答
+  FORM_QS.forEach(function(q){
+    var v = formAnswers[q.id];
+    if (v === undefined || v === null) return;
+    if (Array.isArray(v)) {
+      v.forEach(function(val){ params.push("entry." + q.id + "=" + encodeURIComponent(val)); });
+    } else {
+      params.push("entry." + q.id + "=" + encodeURIComponent(v));
+    }
+  });
+  fetch(GOOGLE_FORM_URL, {
+    method: "POST",
+    mode: "no-cors",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: params.join("&"),
+  }).then(function(){
+    removeTyping();
+    addBot("アンケートへのご回答ありがとうございました 🌸\nGoogleフォームへ送信が完了しました。");
+    if (surveyAnswers.stars >= 4) {
+      // surveyAnswers を formAnswers から補完して口コミ生成へ
+      if (!surveyAnswers.symptom && formAnswers[146541950]) {
+        surveyAnswers.symptom = Array.isArray(formAnswers[146541950]) ? formAnswers[146541950].join("・") : formAnswers[146541950];
+      }
+      if (!surveyAnswers.impression && formAnswers[1189402410]) {
+        surveyAnswers.impression = Array.isArray(formAnswers[1189402410]) ? formAnswers[1189402410][0] : formAnswers[1189402410];
+      }
+      wait(function(){ finishSurvey(); }, 600);
+    } else {
+      wait(function(){ askPurpose(); }, 600);
+    }
+  }).catch(function(){
+    removeTyping();
+    addBot("アンケートへのご回答ありがとうございました 🌸");
+    if (surveyAnswers.stars >= 4) { wait(function(){ finishSurvey(); }, 600); }
+    else { wait(function(){ askPurpose(); }, 600); }
+  });
 }
 
 function finishSurvey() {
@@ -3152,8 +3279,13 @@ function sendText() {
     step="";
     fetch(GAS_URL, { method:"POST", body:JSON.stringify({ token:AUTH_TOKEN, action:"notifyStaff", type:"complaint", message:text, patient:patient.name }) });
     wait(function(){ addBot("ありがとうございます。必ずスタッフに伝えます 🌸"); wait(function(){ askPurpose(); }, 600); }, 400);
-  } else if (step==="survey_symptom") {
-    step=""; surveyAnswers.symptom=text; wait(function(){ surveyPain1(); }, 400);
+  } else if (step==="form_text") {
+    step="";
+    var _fq = FORM_QS[_formIdx];
+    if (text && _fq) formAnswers[_fq.id] = text;
+    var _fskip = document.getElementById("fskip-" + _formIdx);
+    if (_fskip) _fskip.remove();
+    wait(function(){ askFormQ(_formIdx + 1); }, 400);
   } else if (step==="location_free") {
     step=""; reserv.location=text; wait(function(){ askMotivation(); }, 400);
   } else if (step==="other_free") {

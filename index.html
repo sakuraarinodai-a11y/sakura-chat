@@ -291,7 +291,7 @@ function saveData(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){
 function loadData(k){ try{var d=localStorage.getItem(k);return d?JSON.parse(d):null;}catch(e){return null;} }
 
 // HTML最終更新日時（デプロイ時に自動更新）
-var HTML_UPDATED = "2026/03/13 14:05";
+var HTML_UPDATED = "2026/03/13 15:10";
 document.getElementById("ver-label").textContent = "HTML更新: " + HTML_UPDATED;
 // GAS最終更新日時を非同期で取得して表示
 fetch(GAS_URL + "?action=memoStatus")
@@ -639,7 +639,7 @@ function finishSurvey() {
       var loadingMsg = document.getElementById("review-generating-msg");
       if (loadingMsg) loadingMsg.remove();
       // [変更] AI失敗時もフォールバックテンプレートでシームレスにGoogle投稿へ
-      var reviewText = (d.success && d.review) ? d.review : _buildFallbackReview();
+      var reviewText = _cleanReviewText((d.success && d.review) ? d.review : _buildFallbackReview());
       var msgText = (d.success && d.review)
         ? "口コミ文をご用意しました 🌸\n内容を自由に編集していただけます。"
         : "口コミ文のサンプルをご用意しました 🌸\n内容を編集してご利用ください。";
@@ -671,7 +671,7 @@ function finishSurvey() {
         wrap.className = "cardwrap";
         wrap.innerHTML = '<div class="card">'
           + '<h3>📝 口コミ文（編集可）</h3>'
-          + '<textarea id="review-text" oninput="updateReviewCount()" style="width:100%;min-height:120px;font-size:13px;line-height:1.8;color:#374151;border:1px solid #e5e7eb;border-radius:8px;padding:8px;resize:vertical;box-sizing:border-box;">' + esc(_buildFallbackReview()) + '</textarea>'
+          + '<textarea id="review-text" oninput="updateReviewCount()" style="width:100%;min-height:120px;font-size:13px;line-height:1.8;color:#374151;border:1px solid #e5e7eb;border-radius:8px;padding:8px;resize:vertical;box-sizing:border-box;">' + esc(_cleanReviewText(_buildFallbackReview())) + '</textarea>'
           + '<p id="review-char-count" style="font-size:11px;color:#6b7280;text-align:right;margin:4px 0 8px;"></p>'
           + '<div class="btnrow">'
           + '<button class="btnok" onclick="postGoogleReview()">コピーしてGoogleに投稿 👉</button>'
@@ -688,6 +688,16 @@ function finishSurvey() {
     fetch(GAS_URL, { method:"POST", body:JSON.stringify({ token:AUTH_TOKEN, action:"notifyStaff", type:"low_rating", survey:surveyAnswers, patient:patient.name }) });
     wait(function(){ askPurpose(); }, 800);
   }
+}
+
+// 口コミテキストのHTMLタグ除去
+function _cleanReviewText(text) {
+  if (!text) return text;
+  return text
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&nbsp;/g, " ")
+    .trim();
 }
 
 // [変更] AI生成失敗時のフォールバック口コミテンプレート
@@ -720,7 +730,9 @@ function postGoogleReview() {
     var toast = document.getElementById("copy-toast");
     if (toast) { toast.classList.add("show"); setTimeout(function(){ toast.classList.remove("show"); }, 3000); }
     window.open("https://g.page/r/Cc0rd9i5x96tEAE/review", "_blank");
-    addBot("✅ 口コミ文をコピーしました！\n\n開いたGoogleのページで「レビューを書く」欄に貼り付けてください（長押し→貼り付け）🌸\n\nご協力ありがとうございます！");
+    var _stars = surveyAnswers.stars || 5;
+    var _starStr = "★".repeat(_stars) + "☆".repeat(5 - _stars);
+    addBot("✅ 口コミ文をコピーしました！\n\n開いたGoogleのページで：\n① 星を " + _stars + " つ（" + _starStr + "）つけてください\n② レビュー欄に貼り付けてください（長押し→貼り付け）🌸\n\nご協力ありがとうございます！");
     wait(function(){ askPurpose(); }, 800);
   };
   if (navigator.clipboard && navigator.clipboard.writeText) {

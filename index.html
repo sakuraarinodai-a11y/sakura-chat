@@ -1566,9 +1566,31 @@ function loadSlotsMulti(date) {
     }
 
     if (filtered.length === 0) {
-      addBot("本日の残りの枠は受付終了です（当日2時間前まで受付）😢\nお電話（078-984-5788）にてご相談ください。");
-      wait(function(){ showChoices([{ label:"別の日にする", val:"other_day" }], function(){ wait(function(){ askDate(); }, 400); }); }, 600);
-      return;
+      if (date === todayStr) {
+        addBot("直前のご予約はお電話で承ります 📞\nオンライン予約は2時間前が締め切りですが、院の受付は通常通り営業中です。\nお気軽にお電話ください：078-984-5788");
+        wait(function(){
+          showChoices([
+            { label:"📞 今すぐ電話する", val:"call_now" },
+            { label:"別の日にする",      val:"other_day" },
+          ], function(v){
+            if (v==="call_now") { window.location.href = "tel:0789845788"; }
+            else { wait(function(){ askDate(); }, 400); }
+          });
+        }, 600); return;
+      }
+      addBot("その日は複数メニューを組み合わせられる空きが確認できませんでした 🌸\nご希望の日時をメールにてお知らせください。確認後にご連絡いたします。\n\n📧 sakura.arinodai@gmail.com");
+      wait(function(){
+        showChoices([
+          { label:"別の日で探す",            val:"other_day"  },
+          { label:"メール本文をコピー 📋",   val:"copy_email" },
+        ], function(v){
+          if (v === "copy_email") {
+            var body = "件名：予約希望\nお名前：\nご希望日時（第1希望）：\nご希望日時（第2希望）：\nメニュー：" + (reserv.menu||"") + (reserv.extraMenus ? "＋" + (reserv.extraMenus||[]).join("・") : "");
+            try { navigator.clipboard.writeText(body); addBot("コピーしました！メールに貼り付けてお送りください 🌸"); }
+            catch(err) { addBot("以下をコピーしてお送りください：\n" + body); }
+          } else { wait(function(){ askDate(); }, 400); }
+        });
+      }, 600); return;
     }
 
     var menuLabel = reserv.menu + (reserv.extraMenus && reserv.extraMenus.length > 0 ? " ＋ " + reserv.extraMenus.join("・") : "");
@@ -1909,8 +1931,16 @@ function loadSlots(date, zone) {
 
     if (filtered.length === 0) {
       if (cutoffNotice) {
-        addBot("本日の残りの枠は受付終了です（当日2時間前まで受付）😢\nお電話（078-984-5788）にてご相談ください。");
-        wait(function(){ showChoices([{ label:"別の日にする", val:"other_day" }], function(){ wait(function(){ askDate(); }, 400); }); }, 600);
+        addBot("直前のご予約はお電話で承ります 📞\nオンライン予約は2時間前が締め切りですが、院の受付は通常通り営業中です。\nお気軽にお電話ください：078-984-5788");
+        wait(function(){
+          showChoices([
+            { label:"📞 今すぐ電話する",  val:"call_now" },
+            { label:"別の日にする",        val:"other_day" },
+          ], function(v){
+            if (v==="call_now") { window.location.href = "tel:0789845788"; }
+            else { wait(function(){ askDate(); }, 400); }
+          });
+        }, 600);
         return;
       }
       var zoneLabel = zone==="morning"?"午前中":zone==="noon"?"昼頃":"夕方以降";
@@ -1927,7 +1957,7 @@ function loadSlots(date, zone) {
       return;
     }
     var slotMsg = "「" + (reserv.menu||"") + "」の空きがございます 🌸\nご希望の時間をお選びください。";
-    if (cutoffNotice) slotMsg += "\n✅ 以下の時間帯はオンラインでご予約いただけます。\n（2時間以内の枠はお電話のみ：078-984-5788）";
+    if (cutoffNotice) slotMsg += "\n⏰ 直前の枠はお電話のみ（078-984-5788）。\n以下の時間帯はオンラインでご予約いただけます。";
     addBot(slotMsg);
     wait(function(){
       var outer = document.createElement("div"); outer.className = "cardwrap";

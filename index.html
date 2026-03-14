@@ -3204,6 +3204,13 @@ function handleConsultInput(text) {
     wait(function(){ showMenuPriceCard(); }, 400);
     return;
   }
+  // 手続き・書類・請求など「スタッフ対応必須」キーワードは自動的に連絡ウィンドウへ（G対応）
+  if (/書類|申請|手続き|診断書|紹介状|証明書|返金|請求|領収書|クレーム|苦情|特別対応|担当者|院長|スタッフと話|直接話/.test(text)) {
+    step="";
+    addBot("ご対応にはスタッフの確認が必要な内容です 🌸\n以下のフォームからお問い合わせ内容をお送りください。確認後に折り返しご連絡いたします。");
+    wait(function(){ showContactRequest(text); }, 600);
+    return;
+  }
   // 保険・自賠責・労災キーワードは直接回答（other_freeステップでも確実に対応）
   if (/保険|自賠責|じばいせき|労災|健康保険/.test(text)) {
     step="";

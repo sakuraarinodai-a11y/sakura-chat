@@ -3204,6 +3204,31 @@ function handleConsultInput(text) {
     wait(function(){ showMenuPriceCard(); }, 400);
     return;
   }
+  // 保険・自賠責・労災キーワードは直接回答（other_freeステップでも確実に対応）
+  if (/保険|自賠責|じばいせき|労災|健康保険/.test(text)) {
+    step="";
+    addBot("当院では以下の保険に対応しています 🌸\n\n✅ 健康保険：骨折・脱臼・捻挫・打撲・挫傷などに適用（柔道整復師による施術）\n✅ 自賠責保険：交通事故被害者の治療費・慰謝料を補償する強制保険。当院で対応可能（加害者側保険会社へ請求）\n✅ 労災保険：仕事中・通勤中のケガに適用可\n\nくわしくはお電話でもご相談ください：078-984-5788");
+    wait(function(){
+      showChoices([
+        { label:"交通事故治療を予約する", val:"jiko" },
+        { label:"保険で初診を予約する",   val:"hoken" },
+        { label:"最初に戻る",             val:"restart" },
+      ], function(v){
+        if (v==="jiko")       { wait(function(){ onMenuSelect("交通事故治療"); }, 400); }
+        else if (v==="hoken") { wait(function(){ onMenuSelect("初診（保険）"); }, 400); }
+        else                  { reserv={}; step=""; wait(function(){ askPurpose(); }, 400); }
+      });
+    }, 600);
+    return;
+  }
+  // 空き時間確認キーワードは日付選択へ誘導（other_freeステップでも確実に対応）
+  if (/空き|あき|空いてる|あいてる|空いてます|あいてます|いつ.*空|何時.*空|空き.*確認|空き.*教|施療.*空|交通事故.*空|スタッフ.*空|奥田.*空/.test(text)) {
+    step="";
+    addBot("空き時間をご確認します 🌸\nご希望のメニューと日付をお選びください。");
+    if (!reserv.menu) { reserv.menu = "おすすめ初診"; }
+    wait(function(){ askDate(); }, 400);
+    return;
+  }
   showTyping();
   fetch(GAS_URL, { method:"POST", body:JSON.stringify({ token:AUTH_TOKEN, action:"judgeIntent", text:text, reserv:reserv }) })
   .then(function(r){return r.json();})

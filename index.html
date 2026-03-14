@@ -1905,7 +1905,7 @@ function loadSlots(date, zone) {
       return;
     }
     var slotMsg = "「" + (reserv.menu||"") + "」の空きがございます 🌸\nご希望の時間をお選びください。";
-    if (cutoffNotice) slotMsg += "\n※ 当日は2時間前まで受付（以降はお電話で）";
+    if (cutoffNotice) slotMsg += "\n✅ 以下の時間帯はオンラインでご予約いただけます。\n（2時間以内の枠はお電話のみ：078-984-5788）";
     addBot(slotMsg);
     wait(function(){
       var outer = document.createElement("div"); outer.className = "cardwrap";
@@ -1983,14 +1983,25 @@ function onContactSelect(val) {
   } else {
     reserv.tel = patient.tel || "";
     var wrap = document.createElement("div"); wrap.className = "cardwrap";
-    var btn = document.createElement("button"); btn.className = "linebtn";
-    btn.innerHTML = "💚 LINEでお友達登録する";
-    btn.onclick = function(){ window.open(LINE_URL,"_blank"); };
-    wrap.appendChild(btn);
+    var lineBtn = document.createElement("button"); lineBtn.className = "linebtn";
+    lineBtn.innerHTML = "💚 LINEでお友達登録する";
+    lineBtn.onclick = function(){ window.open(LINE_URL,"_blank"); };
+    wrap.appendChild(lineBtn);
     document.getElementById("msgs").appendChild(wrap); scrollB();
     wait(function(){
-      if (reserv.multiAssignments) showConfirmCardMulti();
-      else showConfirmCard();
+      addBot("LINEへの登録が完了したら、下のボタンを押して予約を続けてください 🌸");
+      wait(function(){
+        var nextWrap = document.createElement("div"); nextWrap.className = "cardwrap";
+        var nextBtn = document.createElement("button"); nextBtn.className = "btnok";
+        nextBtn.textContent = "登録完了 → 予約に進む";
+        nextBtn.onclick = function(){
+          nextBtn.disabled = true;
+          if (reserv.multiAssignments) showConfirmCardMulti();
+          else showConfirmCard();
+        };
+        nextWrap.appendChild(nextBtn);
+        document.getElementById("msgs").appendChild(nextWrap); scrollB();
+      }, 600);
     }, 800);
   }
 }
@@ -2074,7 +2085,17 @@ function confirmReservation() {
       reserv.upcomingCount = data.upcomingCount || 0;
       wait(function(){ askArrival(); }, 1000);
     } else {
-      addBot("⚠️ 予約登録に問題が発生しました。\nお電話（078-984-5788）でご確認ください。","error"); showRestartButton();
+      var errDetail = data.message || "予約登録に問題が発生しました";
+      addBot("⚠️ " + errDetail + "\n\n別の時間帯でお試しいただくか、お電話（078-984-5788）でもご予約いただけます。","error");
+      wait(function(){
+        showChoices([
+          { label:"別の時間を選ぶ", val:"retry" },
+          { label:"最初からやり直す", val:"restart" },
+        ], function(v){
+          if (v==="retry") { wait(function(){ loadSlots(reserv.date, reserv.preferredZone||"any"); }, 400); }
+          else { showRestartButton(); }
+        });
+      }, 600);
     }
   })
   .catch(function(){ removeTyping(); addBot("⚠️ 通信エラーが発生しました。\nお電話（078-984-5788）でご確認ください。","error"); showRestartButton(); });

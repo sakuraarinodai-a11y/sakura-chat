@@ -2048,7 +2048,7 @@ function showConfirmCard() {
     wrap.innerHTML = '<div class="card"><h3>📋 予約内容の確認</h3>'
       + row("お名前", name+"（"+kana+"）")
       + row("連絡先", reserv.tel||"")
-      + row("メニュー", (reserv.menu||"") + ' <button onclick="showMultiMenuSelector(reserv.menu,reserv.extraMenus||[])" style="background:none;border:none;font-size:11px;color:#9ca3af;cursor:pointer;text-decoration:underline;padding:0 4px;">変える</button>')
+      + row("メニュー", (reserv.menu||""))
       + row("日時", (reserv.date||"")+" "+(reserv.time||"")+" "+endTimeStr)
       + '<div class="btnrow">'
       + '<button class="btnok" onclick="confirmReservation()">この内容で予約する</button>'
